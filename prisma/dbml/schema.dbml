@@ -1,0 +1,1490 @@
+//// ------------------------------------------------------
+//// THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+//// ------------------------------------------------------
+
+Table users {
+  id String [pk]
+  name String
+  email String [unique, not null]
+  username String
+  phone String
+  password String
+  avatar String
+  bio String
+  about String
+  address String
+  city String
+  state String
+  country String
+  zipCode String
+  dob DateTime
+  governmentID String
+  gender Gender
+  lattitude Float
+  longitude Float
+  status UserStatus [not null, default: 'ACTIVE']
+  isEmailVerified Boolean [not null, default: false]
+  isTwoFactorEnabled Boolean [not null, default: false]
+  hostVerified Boolean [not null, default: false]
+  blockedUntil DateTime
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  deletedAt DateTime
+  stripeAccountId String
+  stripeAccountStatus String
+  stripeOnboardingComplete Boolean [not null, default: false]
+  stripeCustomerId String
+  lastLoginAt DateTime
+  loginHistory login_history [not null]
+  accounts accounts [not null]
+  experience experiences [not null]
+  bookings bookings [not null]
+  reviewsGiven reviews [not null]
+  reviewReceived reviews [not null]
+  messagesReceived messages [not null]
+  messagesSent messages [not null]
+  messageRoomsSent message_rooms [not null]
+  messageRoomsReceived message_rooms [not null]
+  notifications notifications [not null]
+  wishlistItems wishlist_items [not null]
+  hostVerification host_verifications [not null]
+  activityLogs activity_log [not null]
+  businessInfo business_info
+  notificationSettings notifications_settings
+  roles user_roles [not null]
+  transactionsPaid transactions [not null]
+  transactionsReceived transactions [not null]
+  transactionsApproved transactions [not null]
+  coupons coupons [not null]
+  customerRedemptions coupon_redemptions [not null]
+  hostRedemptions coupon_redemptions [not null]
+  blogs blog [not null]
+  interests user_interest [not null]
+  withdrawalRequests withdrawal_requests [not null]
+  withdrawalApprovals withdrawal_requests [not null]
+  reels reels [not null]
+  feedBacks feedback [not null]
+  rewardPoints RewardPoints [not null]
+  redemptions Redemption [not null]
+  userLoyalty UserLoyalty
+  tierHistories TierHistory [not null]
+}
+
+Table user_otp {
+  id String [pk]
+  type OtpType [not null, default: 'VERIFY_EMAIL']
+  email String [not null]
+  otp String [not null]
+  expiresAt DateTime
+  createdAt DateTime [default: `now()`, not null]
+
+  indexes {
+    (email, type) [unique]
+  }
+}
+
+Table accounts {
+  id String [pk]
+  userId String [not null]
+  type String [not null]
+  provider String [not null]
+  providerAccountId String
+  refreshToken String
+  accessToken String
+  expiresAt Int
+  user users [not null]
+  createdAt DateTime [default: `now()`, not null]
+
+  indexes {
+    (provider, providerAccountId) [unique]
+  }
+}
+
+Table user_roles {
+  id String [pk]
+  userId String [not null]
+  roleId String [not null]
+  user users [not null]
+  role roles [not null]
+
+  indexes {
+    (userId, roleId) [unique]
+  }
+}
+
+Table roles {
+  id String [pk]
+  name String [unique, not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  userRoles user_roles [not null]
+  rolePermissions role_permissions [not null]
+}
+
+Table permissions {
+  id String [pk]
+  name String [unique, not null]
+  group String [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  rolePermissions role_permissions [not null]
+}
+
+Table role_permissions {
+  id String [pk]
+  roleId String [not null]
+  permissionId String [not null]
+  roles roles [not null]
+  permissions permissions [not null]
+
+  indexes {
+    (roleId, permissionId) [unique]
+  }
+}
+
+Table login_history {
+  id String [pk]
+  userId String [not null]
+  attempt LoginHistoryStatus [not null, default: 'SUCCESS']
+  ip String
+  country String
+  userAgent String
+  createdAt DateTime [default: `now()`, not null]
+  user users [not null]
+}
+
+Table tags {
+  id String [pk]
+  name String [unique, not null]
+  slug String [unique, not null]
+  blogs blog [not null]
+  experiences experiences [not null]
+}
+
+Table categorys {
+  id String [pk]
+  name String [unique, not null]
+  slug String [unique, not null]
+  icon String
+  experiences experiences [not null]
+  blogs blog [not null]
+  interests user_interest [not null]
+  status CategoryStatus [not null, default: 'ACTIVE']
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [default: `now()`, not null]
+}
+
+Table user_interest {
+  id String [pk]
+  user users [not null]
+  userId String [not null]
+  category categorys [not null]
+  categoryId String [not null]
+
+  indexes {
+    (userId, categoryId) [unique]
+  }
+}
+
+Table experiences {
+  id String [pk]
+  user users [not null]
+  userId String [not null]
+  name String [not null]
+  shortDesc String [not null, default: '']
+  slug String [unique, not null]
+  status ExperienceStatus [not null, default: 'DRAFT']
+  address String
+  city String
+  state String
+  country String
+  zipCode String
+  latitude Float
+  longitude Float
+  scheduleType ScheduleType [not null, default: 'ONTIME']
+  cancelPolicy String
+  latePolicy String
+  reschedulePolicy String
+  refundable Boolean [not null, default: false]
+  coverImage String
+  cancellationFee Decimal
+  detailsDesc String
+  includes String[] [not null]
+  notes String
+  guestRequirements String
+  agreement String
+  tags tags [not null]
+  averageRating Float [default: 0]
+  reviewCount Int [default: 0]
+  reviews reviews [not null]
+  category categorys [not null]
+  categoryId String [not null]
+  badges experience_badges [not null]
+  amenities experience_amenities [not null]
+  media images [not null]
+  wishlistItems wishlist_items [not null]
+  translations translations [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  deletedAt DateTime
+  events events [not null]
+  activities Json
+  timeslots Json
+  startDate DateTime
+  endDate DateTime
+  startTime String
+  duration Float
+  endTime String
+  isFeatured Boolean [not null, default: false]
+  isActive Boolean [not null, default: true]
+  price Decimal [not null, default: 0]
+  discount Decimal [not null, default: 0]
+  discountType DiscountType [not null, default: 'PERCENTAGE']
+  openWindowDays Int
+  bookingCount Int [not null, default: 0]
+  maxGuest Int
+  maxPerSlot Int
+  maxparticipants Int
+  bookings bookings [not null]
+  rooms message_rooms [not null]
+  transactions transactions [not null]
+  coupons coupons [not null]
+  redemptions coupon_redemptions [not null]
+  reels reels [not null]
+  recurrenceRules RecurrenceRule
+  featured featured_experiences [not null]
+}
+
+Table RecurrenceRule {
+  id String [pk]
+  experienceId String [unique, not null]
+  experience experiences [not null]
+  frequency Frequency [not null, default: 'DAILY']
+  interval Int [default: 1]
+  byday DayType[] [not null]
+  count Int
+  until DateTime
+  openWindowDays Int
+  nextRecurrence DateTime
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table events {
+  id String [pk]
+  experienceId String [not null]
+  title String
+  date DateTime [not null]
+  startTime String
+  duration Float
+  endTime String
+  maxGuest Int [not null]
+  maxperSlot Int
+  discount Decimal [not null, default: 0]
+  discountType DiscountType [not null, default: 'PERCENTAGE']
+  notes String
+  price Decimal [not null, default: 0]
+  status EventStatus [not null, default: 'SCHEDULE']
+  activities Json
+  timeslots Json
+  isAvailable Boolean [not null, default: true]
+  maxparticipants Int [not null, default: 0]
+  availableTickets Int [not null, default: 0]
+  bookings bookings [not null]
+  reviews reviews [not null]
+  experience experiences [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [default: `now()`, not null]
+
+  indexes {
+    (experienceId, date, startTime) [unique]
+  }
+}
+
+Table badges {
+  id String [pk]
+  name String [unique, not null]
+  icon String
+  experiences experience_badges [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table experience_badges {
+  id String [pk]
+  experience experiences [not null]
+  experienceId String [not null]
+  badge badges [not null]
+  badgeId String [not null]
+
+  indexes {
+    (experienceId, badgeId) [unique]
+  }
+}
+
+Table bookings {
+  id String [pk]
+  user users [not null]
+  userId String [not null]
+  eventId String
+  event events
+  experienceId String [not null]
+  experience experiences [not null]
+  startDate DateTime [not null]
+  guestCount Int [not null, default: 1]
+  price Decimal [not null]
+  discount Decimal [not null]
+  vat Decimal [not null]
+  tax Decimal [not null]
+  total Decimal [not null]
+  status BookingStatus [not null, default: 'PENDING']
+  paymentMethod PaymentMethod [not null]
+  couponId String
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [default: `now()`, not null]
+  deletedAt DateTime
+  transactions transactions [not null]
+  rooms message_rooms [not null]
+}
+
+Table transactions {
+  id String [pk]
+  type TransactionType [not null]
+  status TransactionStatus [not null, default: 'PENDING']
+  amount Decimal [not null]
+  currency Currency [not null, default: 'USD']
+  provider PaymentProvider [not null]
+  payer users
+  payerId String
+  payee users
+  payeeId String
+  booking bookings
+  bookingId String
+  coupon coupons
+  couponId String
+  experience experiences
+  experienceId String
+  couponPurchases coupons [not null]
+  stripePaymentIntent String
+  stripeTransferId String
+  stripeAccountId String
+  stripeChargeId String
+  platformFee Decimal
+  hostAmount Decimal
+  externalTxnId String
+  parentTransaction transactions
+  parentTransactionId String
+  childTransactions transactions [not null]
+  description String
+  notes String
+  metadata Json
+  processedAt DateTime
+  settledAt DateTime
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  approvedBy users
+  approvedById String
+  approvedAt DateTime
+  payoutStatus payoutStatus [not null, default: 'NULL']
+}
+
+Table reviews {
+  id String [pk]
+  eventId String
+  event events
+  experienceId String [not null]
+  experience experiences [not null]
+  reviewer users [not null]
+  reviewerId String [not null]
+  reviewee users [not null]
+  revieweeId String [not null]
+  rating Int [not null, default: 0]
+  title String
+  comment String [not null]
+  status ReviewStatus [not null, default: 'PENDING']
+  createdAt DateTime [default: `now()`, not null]
+  replyed String
+  repliedAt DateTime
+}
+
+Table coupons {
+  id String [pk]
+  code String [unique, not null]
+  qrCode String [unique]
+  user users [not null]
+  userId String [not null]
+  experience experiences [not null]
+  experienceId String [not null]
+  type CouponType [not null]
+  title String [not null]
+  description String [not null]
+  value Float [not null]
+  currency String [not null, default: 'USD']
+  discountPercent Int
+  maxUses Int [not null, default: 1]
+  usedCount Int [not null, default: 0]
+  status CouponStatus [not null, default: 'ACTIVE']
+  validFrom DateTime [not null]
+  validTo DateTime [not null]
+  isActive Boolean [not null, default: true]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  purchaseTransaction transactions
+  purchaseTransactionId String
+  redemptions coupon_redemptions [not null]
+  transactions transactions [not null]
+}
+
+Table coupon_redemptions {
+  id String [pk]
+  coupon coupons [not null]
+  couponId String [not null]
+  customer users [not null]
+  customerId String [not null]
+  experience experiences [not null]
+  experienceId String [not null]
+  host users [not null]
+  hostId String [not null]
+  redeemedAt DateTime [default: `now()`, not null]
+  amountUsed Float
+  notes String
+  ipAddress String
+  location String
+}
+
+Table amenities {
+  id String [pk]
+  name String [not null]
+  slug String [unique, not null]
+  icon String
+  description String
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  experiences experience_amenities [not null]
+}
+
+Table experience_amenities {
+  id String [pk]
+  experience experiences [not null]
+  experienceId String [not null]
+  amenity amenities [not null]
+  amenityId String [not null]
+
+  indexes {
+    (experienceId, amenityId) [unique]
+  }
+}
+
+Table images {
+  id String [pk]
+  experience experiences [not null]
+  experienceId String [not null]
+  status MediaStatus [not null, default: 'ACTIVE']
+  title String
+  description String
+  url String [not null]
+  type MediaType [not null]
+  uploadedAt DateTime [default: `now()`, not null]
+}
+
+Table translations {
+  id String [pk]
+  experience experiences [not null]
+  experienceId String [not null]
+  languageCode LanguageCode [not null, default: 'en']
+  title String [not null]
+  description String [not null]
+
+  indexes {
+    (experienceId, languageCode) [unique]
+  }
+}
+
+Table message_rooms {
+  id String [pk]
+  sender users [not null]
+  senderId String [not null]
+  receiver users [not null]
+  receiverId String [not null]
+  experienceId String [not null]
+  experience experiences [not null]
+  bookingId String
+  booking bookings
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  messages messages [not null]
+
+  indexes {
+    (senderId, receiverId, experienceId) [unique]
+  }
+}
+
+Table messages {
+  id String [pk]
+  room message_rooms [not null]
+  roomId String [not null]
+  sender users [not null]
+  senderId String [not null]
+  receiver users [not null]
+  receiverId String [not null]
+  message String [not null]
+  attachment String
+  type MessageType [not null, default: 'TEXT']
+  sentAt DateTime [default: `now()`, not null]
+  isRead Boolean [not null, default: false]
+}
+
+Table notifications {
+  id String [pk]
+  user users [not null]
+  userId String [not null]
+  type NotificationType [not null, default: 'MESSAGE']
+  title String [not null]
+  link String
+  message String [not null]
+  image String
+  readAt DateTime
+  createdAt DateTime [default: `now()`, not null]
+}
+
+Table activity_log {
+  id String [pk]
+  user users
+  type String [not null]
+  userId String
+  action String [not null]
+  metadata String
+  ipAddress String
+  createdAt DateTime [default: `now()`, not null]
+}
+
+Table featured_experiences {
+  id String [pk]
+  experience experiences [not null]
+  experienceId String [unique, not null]
+  createdAt DateTime [default: `now()`, not null]
+}
+
+Table wishlist_items {
+  id String [pk]
+  userId String [not null]
+  user users [not null]
+  experience experiences [not null]
+  experienceId String [not null]
+  createdAt DateTime [default: `now()`, not null]
+
+  indexes {
+    (userId, experienceId) [unique]
+  }
+}
+
+Table host_verifications {
+  id String [pk]
+  user users [not null]
+  userId String [not null]
+  idDocument String [not null]
+  verified Boolean [not null]
+  verifiedAt DateTime
+}
+
+Table business_info {
+  id String [pk]
+  userId String [unique, not null]
+  user users [not null]
+  status BusinessInfoStatus [not null, default: 'PENDING']
+  name String
+  type String
+  description String
+  registrationNumber String
+  taxvatNumber String
+  country String
+  businessPhone String
+  businessEmail String
+  streetAddress String
+  city String
+  state String
+  zipCode String
+  address String
+  phone String
+  email String
+  socialLinks String[] [not null]
+  isVerified Boolean [not null, default: false]
+  documents String[] [not null]
+  verifiedAt DateTime
+  message String
+  verifiedById String
+  createdAt DateTime [default: `now()`, not null]
+}
+
+Table notifications_settings {
+  id String [pk]
+  userId String [unique, not null]
+  user users [not null]
+  newBooking Boolean [not null, default: true]
+  bookingcancellation Boolean [not null, default: true]
+  bookingreminder Boolean [not null, default: true]
+  payoutintiated Boolean [not null, default: true]
+  payoutcompleted Boolean [not null, default: true]
+  newreview Boolean [not null, default: true]
+  experienceupdated Boolean [not null, default: true]
+  tipsforhost Boolean [not null, default: true]
+  promotionaloffer Boolean [not null, default: true]
+  loginnewdevice Boolean [not null, default: true]
+  policychange Boolean [not null, default: true]
+  securityalert Boolean [not null, default: true]
+  updatedAt DateTime [not null]
+  createdAt DateTime [default: `now()`, not null]
+}
+
+Table blog {
+  id String [pk]
+  title String [not null]
+  slug String [unique, not null]
+  content String [not null]
+  excerpt String
+  coverImage String
+  status BlogStatus [not null, default: 'DRAFT']
+  publishedAt DateTime
+  isFeatured Boolean [not null, default: false]
+  isDeleted Boolean [not null, default: false]
+  authorId String [not null]
+  author users [not null]
+  tags tags [not null]
+  categories categorys [not null]
+  seo SeoMetadata
+  seoId String [unique]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  faq helpfaqs [not null]
+}
+
+Table withdrawal_requests {
+  id String [pk]
+  hostId String [not null]
+  host users [not null]
+  amount Decimal [not null]
+  currency Currency [not null, default: 'USD']
+  description String
+  status WithdrawalRequestStatus [not null, default: 'PENDING']
+  requestedAt DateTime [default: `now()`, not null]
+  processedAt DateTime
+  adminNotes String
+  approvedBy users
+  approvedById String
+  approvedAt DateTime
+  stripeTransferId String
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table helpfaqs {
+  id String [pk]
+  question String [not null]
+  answer String [not null]
+  blog blog
+  blogId String
+  type HelpType [not null, default: 'OTHER']
+  status HelpFaqStatus [not null, default: 'PUBLISHED']
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  deletedAt DateTime
+  becomehost becomehost [not null]
+}
+
+Table reels {
+  id String [pk]
+  platform ReelPlatform [not null]
+  videoId String [not null]
+  title String
+  description String
+  thumbnail String
+  duration Int
+  isActive Boolean [not null, default: true]
+  createdBy users [not null]
+  createdById String [not null]
+  experienceId String [not null]
+  experience experiences [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  deletedAt DateTime
+
+  indexes {
+    (platform, videoId) [unique]
+  }
+}
+
+Table feedback {
+  id String [pk]
+  email String [not null]
+  name String [not null]
+  message String [not null]
+  userId String
+  platform PlatformType [not null, default: 'WEOUT_WEB']
+  user users
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table WebhookEvent {
+  id String [pk]
+  stripeEventId String [unique, not null]
+  type String [not null]
+  status WebhookEventStatus [not null, default: 'PENDING']
+  firstSeenAt DateTime [default: `now()`, not null]
+  processedAt DateTime
+  error String
+  payload Json
+}
+
+Table hero_section {
+  id String [pk]
+  title String [not null]
+  description String
+  sortName String
+  image String
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table becomehost {
+  id String [pk]
+  heading String [not null]
+  subHeading String
+  image String
+  content String
+  seo SeoMetadata [not null]
+  seoId String [unique, not null]
+  faq helpfaqs [not null]
+  cards card [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table banner {
+  id String [pk]
+  title String [not null]
+  description String
+  image String
+  isActive Boolean [not null, default: true]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table card {
+  id String [pk]
+  title String [not null]
+  description String
+  image String
+  isActive Boolean [not null, default: true]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  becomehostId String
+  becomehost becomehost
+}
+
+Table settings {
+  id String [pk]
+  siteName String [not null]
+  siteUrl String [not null]
+  siteLogo String
+  siteFavicon String
+  siteDescription String
+  siteKeywords String
+  siteEmail String
+  sitePhone String
+  siteAddress String
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table contactinformation {
+  id String [pk]
+  email String [not null]
+  secondaryEmail String
+  phone String [not null]
+  phoneMessage String
+  secondaryPhone String
+  address String
+  secondaryAddress String
+  businessHours String
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table testimonial {
+  id String [pk]
+  name String [not null]
+  badgeTitle String
+  designation String
+  image String
+  title String
+  description String
+  position String
+  isActive Boolean [not null, default: true]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table privacyPolicy {
+  id String [pk]
+  title String [not null]
+  description String
+  image String
+  content String
+  seo SeoMetadata [not null]
+  seoId String [unique, not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table termsAndService {
+  id String [pk]
+  title String [not null]
+  description String
+  image String
+  content String
+  seo SeoMetadata [not null]
+  seoId String [unique, not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table trustandSafety {
+  id String [pk]
+  title String [not null]
+  description String
+  image String
+  content String
+  seo SeoMetadata [not null]
+  seoId String [unique, not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table communityGuidelines {
+  id String [pk]
+  title String [not null]
+  description String
+  image String
+  content String
+  seo SeoMetadata [not null]
+  seoId String [unique, not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table cancellationPolicy {
+  id String [pk]
+  title String [not null]
+  description String
+  image String
+  content String
+  seo SeoMetadata [not null]
+  seoId String [unique, not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table career {
+  id String [pk]
+  title String [not null]
+  description String
+  image String
+  content String
+  seo SeoMetadata [not null]
+  seoId String [unique, not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table SeoMetadata {
+  id String [pk]
+  metaTitle String [not null]
+  becomehost becomehost
+  privacyPolicy privacyPolicy
+  termsAndService termsAndService
+  cancellationPolicy cancellationPolicy
+  career career
+  trustandSafety trustandSafety
+  communityGuidelines communityGuidelines
+  blog blog
+  metaDescription String
+  metaKeywords String
+  robotsIndex Boolean [not null, default: true]
+  robotsFollow Boolean [not null, default: true]
+  ogTitle String
+  ogDescription String
+  ogImage String
+  ogType String
+  ogSiteName String
+  structuredData Json
+  changefreq ChangeFrequency
+  priority Float
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table LoyaltyTier {
+  id String [pk]
+  name String [unique, not null]
+  priority Int [not null]
+  minPoints Int [not null]
+  durationDays Int [not null]
+  benefits Json
+  active Boolean [not null, default: true]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  userLoyalties UserLoyalty [not null]
+}
+
+Table PointRule {
+  id String [pk]
+  action PointRuleAction [not null]
+  name String [not null]
+  basePoints Int [not null, default: 0]
+  perUnit Boolean [not null, default: false]
+  unitAmount Int
+  tierMultipliers Json
+  expiryMonths Int [not null, default: 12]
+  active Boolean [not null, default: true]
+  metadata Json
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  rewards RewardPoints [not null]
+}
+
+Table RewardPoints {
+  id String [pk]
+  userId String [not null]
+  user users [not null]
+  ruleId String
+  rule PointRule
+  action PointRuleAction [not null]
+  points Int [not null]
+  remaining Int [not null]
+  status RewardPointStatus [not null, default: 'ACTIVE']
+  reason String
+  earnedAt DateTime [default: `now()`, not null]
+  expiresAt DateTime
+  referencedId String
+  createdAt DateTime [default: `now()`, not null]
+}
+
+Table Redemption {
+  id String [pk]
+  userId String [not null]
+  user users [not null]
+  points Int [not null]
+  rewardCode String
+  metadata Json
+  createdAt DateTime [default: `now()`, not null]
+}
+
+Table UserLoyalty {
+  id String [pk]
+  userId String [unique, not null]
+  user users [not null]
+  tierId String
+  tier LoyaltyTier
+  currentPoints Int [not null, default: 0]
+  totalEarned Int [not null, default: 0]
+  totalRedeemed Int [not null, default: 0]
+  updatedAt DateTime [not null]
+}
+
+Table TierHistory {
+  id String [pk]
+  userId String [not null]
+  user users [not null]
+  oldTierId String
+  newTierId String
+  reason String
+  createdAt DateTime [default: `now()`, not null]
+}
+
+Table ScheduledJobLog {
+  id String [pk]
+  name String [not null]
+  runAt DateTime [default: `now()`, not null]
+  status String [not null]
+  payload Json
+}
+
+Table BlogTags {
+  blogsId String [ref: > blog.id]
+  tagsId String [ref: > tags.id]
+}
+
+Table ExperienceTags {
+  experiencesId String [ref: > experiences.id]
+  tagsId String [ref: > tags.id]
+}
+
+Table BlogCategories {
+  blogsId String [ref: > blog.id]
+  categoriesId String [ref: > categorys.id]
+}
+
+Table BecomeHostToHelpFaq {
+  becomehostId String [ref: > becomehost.id]
+  faqId String [ref: > helpfaqs.id]
+}
+
+Enum AuthProvider {
+  GOOGLE
+  FACEBOOK
+  APPLE
+  CREDENTIAL
+}
+
+Enum UserStatus {
+  ACTIVE
+  INACTIVE
+  LOCKED
+  BLOCKED
+  BANNED
+  PENDING
+  SUSPENDED
+  DELETED
+}
+
+Enum OtpType {
+  EMAIL
+  PHONE
+  RESET_PASSWORD
+  CHANGE_PASSWORD
+  TWO_FACTOR
+  VERIFY_EMAIL
+  VERIFY_PHONE
+}
+
+Enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+Enum LoginHistoryStatus {
+  SUCCESS
+  FAILED
+  RESET_PASSWORD
+  CHANGE_PASSWORD
+}
+
+Enum CategoryStatus {
+  ACTIVE
+  INACTIVE
+}
+
+Enum Frequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+Enum DayType {
+  MO
+  TU
+  WE
+  TH
+  FR
+  SA
+  SU
+}
+
+Enum EventStatus {
+  SCHEDULE
+  COMPLETED
+  CANCELLED
+  RESCHEDULE
+}
+
+Enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
+Enum ScheduleType {
+  ONTIME
+  RECURRING
+  CUSTOM
+}
+
+Enum ExperienceStatus {
+  PUBLISHED
+  ANOUNCEMENT
+  DRAFT
+  PENDING
+  PAUSED
+  CANCELLED
+  REJECTED
+  DELETED
+}
+
+Enum payoutStatus {
+  NULL
+  UNPAID
+  PENDING
+  PAID
+}
+
+Enum TransactionStatus {
+  PENDING
+  PROCESSING
+  SUCCESS
+  FAILED
+  REJECTED
+  CANCELLED
+  PARTIALLY_REFUNDED
+  FULLY_REFUNDED
+  DISPUTED
+}
+
+Enum PaymentProvider {
+  STRIPE
+  STRIPE_CONNECT
+  CASH
+  WALLET
+}
+
+Enum TransactionType {
+  BOOKING_PAYMENT
+  COUPON_PURCHASE
+  HOST_PAYOUT
+  ADMIN_COMMISSION
+  BOOKING_REFUND
+  COUPON_REFUND
+  MANUAL_DEPOSIT
+  MANUAL_WITHDRAWAL
+  ADJUSTMENT
+}
+
+Enum Currency {
+  USD
+  EUR
+  GBP
+}
+
+Enum PaymentMethod {
+  STRIPE
+  BKASH
+  NAGAD
+  ROCKET
+  MANUAL
+  CASH
+  WALLET
+}
+
+Enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+Enum CouponStatus {
+  ACTIVE
+  USED
+  EXPIRED
+  CANCELLED
+}
+
+Enum CouponType {
+  PREPAID_VALUE
+  SPECIFIC_DEAL
+  BONUS_INCENTIVE
+}
+
+Enum MediaStatus {
+  ACTIVE
+  INACTIVE
+}
+
+Enum MediaType {
+  IMAGE
+  VIDEO
+  AUDIO
+  FILE
+  REELS
+}
+
+Enum LanguageCode {
+  en
+  bn
+  es
+  fr
+}
+
+Enum MessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  AUDIO
+  FILE
+}
+
+Enum NotificationType {
+  NOTIFY
+  BOOKING
+  REVIEW
+  MESSAGE
+  WISHLIST
+  COUPON
+  EVENT
+  EXPERIENCE
+  PAYMENT
+  SYSTEM
+  ALERT
+  EXPERIENCE_SUBMITTED
+}
+
+Enum BusinessInfoStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+Enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  EXPIRED
+  REFUNDED
+}
+
+Enum BlogStatus {
+  DRAFT
+  PUBLISHED
+}
+
+Enum WithdrawalRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+Enum HelpFaqStatus {
+  DRAFT
+  REVIEW
+  PUBLISHED
+  ARCHIVED
+  QUESTIONS
+}
+
+Enum HelpType {
+  BOOKING
+  PAYMENT
+  EVENT
+  EXPERIENCE
+  ACCOUNT
+  COUPON
+  REVIEW
+  MESSAGE
+  NOTIFICATION
+  SYSTEM
+  BECOMEHOST
+  OTHER
+}
+
+Enum ReelPlatform {
+  YOUTUBE
+  TIKTOK
+  FACEBOOK
+}
+
+Enum PlatformType {
+  WEOUT_WEB
+  WEOUT_ANDROID
+  WEOUT_IOS
+}
+
+Enum WebhookEventStatus {
+  PENDING
+  PROCESSED
+  FAILED
+}
+
+Enum ChangeFrequency {
+  ALWAYS
+  HOURLY
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+  NEVER
+}
+
+Enum RewardPointStatus {
+  ACTIVE
+  REDEEMED
+  EXPIRED
+  ADJUSTMENT
+}
+
+Enum PointRuleAction {
+  BOOKING
+  SIGNUP
+  REFERRAL_SIGNUP
+  REFERRAL_PURCHASE
+  REVIEW_SUBMITTED
+  BIRTHDAY_BONUS
+  MANUAL_ADJUSTMENT
+  LOGIN_STREAK
+  SOCIAL_SHARE
+}
+
+Ref: accounts.userId > users.id [delete: Cascade]
+
+Ref: user_roles.userId > users.id [delete: Cascade]
+
+Ref: user_roles.roleId > roles.id [delete: Cascade]
+
+Ref: role_permissions.roleId > roles.id [delete: Cascade]
+
+Ref: role_permissions.permissionId > permissions.id [delete: Cascade]
+
+Ref: login_history.userId > users.id [delete: Cascade]
+
+Ref: user_interest.userId > users.id
+
+Ref: user_interest.categoryId > categorys.id
+
+Ref: experiences.userId > users.id [delete: Cascade]
+
+Ref: experiences.categoryId > categorys.id
+
+Ref: RecurrenceRule.experienceId - experiences.id [delete: Cascade]
+
+Ref: events.experienceId > experiences.id [delete: Cascade]
+
+Ref: experience_badges.experienceId > experiences.id
+
+Ref: experience_badges.badgeId > badges.id
+
+Ref: bookings.userId > users.id [delete: Cascade]
+
+Ref: bookings.eventId > events.id [delete: Cascade]
+
+Ref: bookings.experienceId > experiences.id [delete: Cascade]
+
+Ref: transactions.payerId > users.id
+
+Ref: transactions.payeeId > users.id
+
+Ref: transactions.bookingId > bookings.id
+
+Ref: transactions.couponId - coupons.id
+
+Ref: transactions.experienceId > experiences.id
+
+Ref: transactions.parentTransactionId - transactions.id
+
+Ref: transactions.approvedById > users.id
+
+Ref: reviews.eventId > events.id [delete: Cascade]
+
+Ref: reviews.experienceId > experiences.id [delete: Cascade]
+
+Ref: reviews.reviewerId > users.id [delete: Cascade]
+
+Ref: reviews.revieweeId > users.id [delete: Cascade]
+
+Ref: coupons.userId > users.id [delete: Cascade]
+
+Ref: coupons.experienceId > experiences.id
+
+Ref: coupons.purchaseTransactionId - transactions.id
+
+Ref: coupon_redemptions.couponId > coupons.id
+
+Ref: coupon_redemptions.customerId > users.id
+
+Ref: coupon_redemptions.experienceId > experiences.id [delete: Cascade]
+
+Ref: coupon_redemptions.hostId > users.id
+
+Ref: experience_amenities.experienceId > experiences.id
+
+Ref: experience_amenities.amenityId > amenities.id
+
+Ref: images.experienceId > experiences.id
+
+Ref: translations.experienceId > experiences.id
+
+Ref: message_rooms.senderId > users.id
+
+Ref: message_rooms.receiverId > users.id
+
+Ref: message_rooms.experienceId > experiences.id
+
+Ref: message_rooms.bookingId > bookings.id [delete: Cascade]
+
+Ref: messages.roomId > message_rooms.id
+
+Ref: messages.senderId > users.id
+
+Ref: messages.receiverId > users.id
+
+Ref: notifications.userId > users.id
+
+Ref: activity_log.userId > users.id
+
+Ref: featured_experiences.experienceId > experiences.id
+
+Ref: wishlist_items.userId > users.id
+
+Ref: wishlist_items.experienceId > experiences.id
+
+Ref: host_verifications.userId > users.id
+
+Ref: business_info.userId - users.id [delete: Cascade]
+
+Ref: notifications_settings.userId - users.id [delete: Cascade]
+
+Ref: blog.authorId > users.id
+
+Ref: blog.seoId - SeoMetadata.id
+
+Ref: withdrawal_requests.hostId > users.id
+
+Ref: withdrawal_requests.approvedById > users.id
+
+Ref: helpfaqs.blogId > blog.id
+
+Ref: reels.createdById > users.id
+
+Ref: reels.experienceId > experiences.id
+
+Ref: feedback.userId > users.id [delete: Cascade]
+
+Ref: becomehost.seoId - SeoMetadata.id
+
+Ref: card.becomehostId > becomehost.id
+
+Ref: privacyPolicy.seoId - SeoMetadata.id
+
+Ref: termsAndService.seoId - SeoMetadata.id
+
+Ref: trustandSafety.seoId - SeoMetadata.id
+
+Ref: communityGuidelines.seoId - SeoMetadata.id
+
+Ref: cancellationPolicy.seoId - SeoMetadata.id
+
+Ref: career.seoId - SeoMetadata.id
+
+Ref: RewardPoints.userId > users.id
+
+Ref: RewardPoints.ruleId > PointRule.id
+
+Ref: Redemption.userId > users.id
+
+Ref: UserLoyalty.userId - users.id
+
+Ref: UserLoyalty.tierId > LoyaltyTier.id
+
+Ref: TierHistory.userId > users.id

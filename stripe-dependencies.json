@@ -1,0 +1,14 @@
+{
+  "dependencies": {
+    "stripe": "^14.21.0",
+    "@nestjs/config": "^3.1.1"
+  },
+  "devDependencies": {
+    "@types/stripe": "^8.0.417"
+  },
+  "scripts": {
+    "stripe:install": "npm install stripe @nestjs/config",
+    "stripe:install-dev": "npm install --save-dev @types/stripe",
+    "stripe:webhook-listen": "stripe listen --forward-to localhost:3000/stripe/webhook"
+  }
+}

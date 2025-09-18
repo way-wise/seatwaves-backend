@@ -1,0 +1,1661 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator dbml {
+  provider = "prisma-dbml-generator"
+}
+
+enum AuthProvider {
+  GOOGLE
+  FACEBOOK
+  APPLE
+  CREDENTIAL
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  LOCKED
+  BLOCKED
+  BANNED
+  PENDING
+  SUSPENDED
+  DELETED
+}
+
+model User {
+  id                       String                 @id @default(ulid()) @map("userId")
+  name                     String?
+  email                    String                 @unique
+  username                 String?
+  phone                    String?
+  password                 String?
+  avatar                   String?
+  bio                      String?
+  about                    String?
+  address                  String?
+  city                     String?
+  state                    String?
+  country                  String?
+  zipCode                  String?
+  dob                      DateTime?
+  governmentID             String?
+  gender                   Gender?
+  lattitude                Float?
+  longitude                Float?
+  status                   UserStatus             @default(ACTIVE)
+  isEmailVerified          Boolean                @default(false)
+  isTwoFactorEnabled       Boolean                @default(false)
+  hostVerified             Boolean                @default(false)
+  blockedUntil             DateTime?
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime               @updatedAt
+  deletedAt                DateTime?
+  stripeAccountId          String? // Stripe Connect account ID
+  stripeAccountStatus      String? // account status (pending, active, etc.)
+  stripeOnboardingComplete Boolean                @default(false)
+  stripeCustomerId         String?
+  lastLoginAt              DateTime?
+  loginHistory             LoginHistory[]
+  accounts                 Account[]
+  experience               Experience[]
+  bookings                 Booking[]
+  reviewsGiven             Review[]               @relation("Reviewer")
+  reviewReceived           Review[]               @relation("Reviewee")
+  messagesReceived         Message[]              @relation("MessageReceiver")
+  messagesSent             Message[]              @relation("MessageSender")
+  messageRoomsSent         MessageRoom[]          @relation("MessageRoomSender")
+  messageRoomsReceived     MessageRoom[]          @relation("MessageRoomReceiver")
+  notifications            Notification[]
+  wishlistItems            WishlistItem[]
+  hostVerification         HostVerification[]
+  activityLogs             ActivityLog[]
+  businessInfo             BusinessInfo?
+  notificationSettings     NotificationsSettings?
+  roles                    UserRoles[]
+  transactionsPaid         Transaction[]          @relation("TransactionPayer")
+  transactionsReceived     Transaction[]          @relation("TransactionPayee")
+  transactionsApproved     Transaction[]          @relation("TransactionApprovedBy")
+  coupons                  Coupon[]
+  customerRedemptions      CouponRedemption[]     @relation("CustomerRedemptions")
+  hostRedemptions          CouponRedemption[]     @relation("HostRedemptions")
+  blogs                    Blog[]
+  interests                UserInterest[]
+  withdrawalRequests       WithdrawalRequest[]    @relation("HostWithdrawals")
+  withdrawalApprovals      WithdrawalRequest[]    @relation("WithdrawalApprovals")
+  reels                    Reels[]
+  feedBacks                FeedBack[]
+  // Loyalty relations
+  rewardPoints             RewardPoints[]
+  redemptions              Redemption[]
+  userLoyalty              UserLoyalty?
+  tierHistories            TierHistory[]
+
+  @@index([name])
+  @@index([email])
+  @@index([username])
+  @@index([status])
+  @@index([createdAt])
+  @@index([blockedUntil])
+  @@index([isEmailVerified])
+  @@index([deletedAt])
+  @@index([lattitude])
+  @@index([longitude])
+  @@map("users")
+}
+
+//OTP For Email
+model UserOtp {
+  id        String    @id @default(ulid())
+  type      OtpType   @default(VERIFY_EMAIL)
+  email     String
+  otp       String
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@unique([email, type])
+  @@index([email])
+  @@index([expiresAt])
+  @@index([otp])
+  @@map("user_otp")
+}
+
+enum OtpType {
+  EMAIL
+  PHONE
+  RESET_PASSWORD
+  CHANGE_PASSWORD
+  TWO_FACTOR
+  VERIFY_EMAIL
+  VERIFY_PHONE
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+model Account {
+  id                String   @id @default(ulid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String?
+  refreshToken      String?
+  accessToken       String?
+  expiresAt         Int?
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt         DateTime @default(now())
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("accounts")
+}
+
+model UserRoles {
+  id     String @id @default(ulid())
+  userId String
+  roleId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+model Role {
+  id        String   @id @default(ulid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userRoles       UserRoles[]
+  rolePermissions RolePermission[]
+
+  @@index([name])
+  @@map("roles")
+}
+
+model Permission {
+  id              String           @id @default(ulid())
+  name            String           @unique
+  group           String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  rolePermissions RolePermission[]
+
+  @@index([name])
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String @id @default(ulid())
+  roleId       String
+  permissionId String
+
+  roles       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permissions Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model LoginHistory {
+  id        String             @id @default(ulid())
+  userId    String
+  attempt   LoginHistoryStatus @default(SUCCESS)
+  ip        String?
+  country   String?
+  userAgent String?
+  createdAt DateTime           @default(now())
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("login_history")
+}
+
+enum LoginHistoryStatus {
+  SUCCESS
+  FAILED
+  RESET_PASSWORD
+  CHANGE_PASSWORD
+}
+
+model Tag {
+  id          String       @id @default(ulid())
+  name        String       @unique
+  slug        String       @unique @db.VarChar(255)
+  blogs       Blog[]       @relation("BlogTags")
+  experiences Experience[] @relation("ExperienceTags")
+
+  @@index([name])
+  @@index([slug])
+  @@map("tags")
+}
+
+model Category {
+  id          String         @id @default(ulid())
+  name        String         @unique
+  slug        String         @unique @db.VarChar(255)
+  icon        String?
+  experiences Experience[]
+  blogs       Blog[]         @relation("BlogCategories")
+  interests   UserInterest[]
+  status      CategoryStatus @default(ACTIVE)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @default(now())
+
+  @@index([name])
+  @@index([slug])
+  @@map("categorys")
+}
+
+enum CategoryStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model UserInterest {
+  id         String   @id @default(ulid())
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String
+  category   Category @relation(fields: [categoryId], references: [id])
+  categoryId String
+
+  @@unique([userId, categoryId], name: "user_interest_unique")
+  @@index([userId])
+  @@map("user_interest")
+}
+
+model Experience {
+  id                String                  @id @default(ulid()) @map("experienceId")
+  user              User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId            String
+  name              String
+  shortDesc         String                  @default("")
+  slug              String                  @unique @db.VarChar(255)
+  status            ExperienceStatus        @default(DRAFT)
+  address           String?
+  city              String?
+  state             String?
+  country           String?
+  zipCode           String?
+  latitude          Float?
+  longitude         Float?
+  scheduleType      ScheduleType            @default(ONTIME)
+  cancelPolicy      String?
+  latePolicy        String?
+  reschedulePolicy  String?
+  refundable        Boolean                 @default(false)
+  coverImage        String?
+  cancellationFee   Decimal?
+  detailsDesc       String?                 @db.Text
+  includes          String[]                @default([])
+  notes             String?
+  guestRequirements String?
+  agreement         String?
+  tags              Tag[]                   @relation("ExperienceTags")
+  averageRating     Float?                  @default(0.0)
+  reviewCount       Int?                    @default(0)
+  reviews           Review[]
+  category          Category                @relation(fields: [categoryId], references: [id])
+  categoryId        String
+  badges            ExperienceBadge[]
+  amenities         ExperienceAmenity[]
+  media             ExperienceMedia[]
+  wishlistItems     WishlistItem[]
+  translations      ExperienceTranslation[]
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  deletedAt         DateTime?
+  events            Events[]                @relation("Events")
+  activities        Json?
+  timeslots         Json?
+  startDate         DateTime?
+  endDate           DateTime?
+  startTime         String?
+  duration          Float?
+  endTime           String?
+  isFeatured        Boolean                 @default(false)
+  isActive          Boolean                 @default(true)
+  price             Decimal                 @default(0.0)
+  discount          Decimal                 @default(0.0)
+  discountType      DiscountType            @default(PERCENTAGE)
+  // Number of days before the event date when it should be generated/made available (e.g., 7/15/30)
+  openWindowDays    Int?
+  bookingCount      Int                     @default(0)
+  maxGuest          Int?
+  maxPerSlot        Int?
+  maxparticipants   Int?
+  bookings          Booking[]
+  rooms             MessageRoom[]
+  transactions      Transaction[]
+  coupons           Coupon[]
+  redemptions       CouponRedemption[]
+  reels             Reels[]
+  recurrenceRules   RecurrenceRule?
+  featured          featuredExperience[]
+
+  @@index([name])
+  @@index([latitude])
+  @@index([longitude])
+  @@index([slug])
+  @@index([startDate])
+  @@index([deletedAt])
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([city])
+  @@index([country])
+  @@index([categoryId])
+  @@index([isActive])
+  @@index([openWindowDays])
+  @@map("experiences")
+}
+
+model RecurrenceRule {
+  id             String     @id @default(ulid())
+  experienceId   String     @unique
+  experience     Experience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+  frequency      Frequency  @default(DAILY)
+  interval       Int?       @default(1)
+  byday          DayType[]
+  count          Int?
+  until          DateTime?
+  // Number of days before the event date when it should be generated/made available (e.g., 7/15/30)
+  openWindowDays Int?
+  nextRecurrence DateTime?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+}
+
+enum Frequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum DayType {
+  MO
+  TU
+  WE
+  TH
+  FR
+  SA
+  SU
+}
+
+model Events {
+  id              String       @id @default(ulid())
+  experienceId    String
+  title           String?
+  date            DateTime
+  startTime       String?
+  duration        Float?
+  endTime         String?
+  maxGuest        Int
+  maxperSlot      Int?
+  discount        Decimal      @default(0.0)
+  discountType    DiscountType @default(PERCENTAGE)
+  notes           String?
+  price           Decimal      @default(0.0)
+  status          EventStatus  @default(SCHEDULE)
+  activities      Json?
+  timeslots       Json?
+  isAvailable     Boolean      @default(true)
+  maxparticipants Int          @default(0)
+  availableTickets Int          @default(0)
+  bookings        Booking[]
+  reviews         Review[]
+  experience      Experience   @relation("Events", fields: [experienceId], references: [id], onDelete: Cascade)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @default(now()) @updatedAt
+
+  @@unique([experienceId, date, startTime])
+  @@index([maxparticipants])
+  @@index([date])
+  @@index([experienceId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([isAvailable])
+  @@index([startTime])
+  @@index([title])
+  @@index([price])
+  @@map("events")
+}
+
+// model RecurrenceRule {
+//   id             String     @id @default(ulid())
+//   experience     Experience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+//   experienceId   String     @unique  // 1:1 relation with Experience
+
+//   frequency      Frequency  @default(DAILY) // DAILY, WEEKLY, MONTHLY, etc.
+//   interval       Int        @default(1)     // every 1 day/week/etc.
+//   byday          String[]   // e.g., ["MO", "WE", "FR"]
+//   count          Int?       // total number of occurrences
+//   until          DateTime?  // end date for recurrence
+//   nextRecurrence DateTime?  // for caching/next instance generation
+
+//   createdAt      DateTime   @default(now())
+//   updatedAt      DateTime   @updatedAt
+// }
+
+enum EventStatus {
+  SCHEDULE
+  COMPLETED
+  CANCELLED
+  RESCHEDULE
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
+enum ScheduleType {
+  ONTIME
+  RECURRING
+  CUSTOM
+}
+
+enum ExperienceStatus {
+  PUBLISHED
+  ANOUNCEMENT
+  DRAFT
+  PENDING
+  PAUSED
+  CANCELLED
+  REJECTED
+  DELETED
+}
+
+model Badge {
+  id          String            @id @default(ulid())
+  name        String            @unique
+  icon        String?
+  experiences ExperienceBadge[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@map("badges")
+}
+
+model ExperienceBadge {
+  id           String     @id @default(ulid())
+  experience   Experience @relation(fields: [experienceId], references: [id])
+  experienceId String
+  badge        Badge      @relation(fields: [badgeId], references: [id])
+  badgeId      String
+
+  @@unique([experienceId, badgeId])
+  @@map("experience_badges")
+}
+
+model Booking {
+  id            String        @id @default(ulid()) @map("bookingId")
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String
+  eventId       String?
+  event         Events?       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  experienceId  String
+  experience    Experience    @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+  startDate     DateTime
+  guestCount    Int           @default(1)
+  price         Decimal
+  discount      Decimal
+  vat           Decimal
+  tax           Decimal
+  total         Decimal
+  status        BookingStatus @default(PENDING)
+  paymentMethod PaymentMethod
+  couponId      String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @default(now()) @updatedAt
+  deletedAt     DateTime?
+  transactions  Transaction[]
+  rooms         MessageRoom[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("bookings")
+}
+
+model Transaction {
+  id String @id @default(ulid())
+
+  // Core transaction details
+  type     TransactionType
+  status   TransactionStatus @default(PENDING)
+  amount   Decimal           @db.Decimal(10, 2)
+  currency Currency          @default(USD)
+  provider PaymentProvider
+
+  // User relationships
+  payer   User?   @relation("TransactionPayer", fields: [payerId], references: [id])
+  payerId String? // Who initiated/paid
+  payee   User?   @relation("TransactionPayee", fields: [payeeId], references: [id])
+  payeeId String? // Who receives
+
+  // Related entities
+  booking      Booking?    @relation(fields: [bookingId], references: [id])
+  bookingId    String?
+  coupon       Coupon?     @relation(fields: [couponId], references: [id])
+  couponId     String?
+  experience   Experience? @relation(fields: [experienceId], references: [id])
+  experienceId String?
+
+  // Coupon purchase relation (reverse relation)
+  couponPurchases Coupon[] @relation("CouponPurchase")
+
+  // Stripe Connect specific
+  stripePaymentIntent String? // Stripe PaymentIntent ID
+  stripeTransferId    String? // Stripe Transfer ID (for host payouts)
+  stripeAccountId     String? // Connected account ID
+  stripeChargeId      String? // Stripe Charge ID
+
+  // Commission tracking
+  platformFee Decimal? @db.Decimal(10, 2) // Admin commission
+  hostAmount  Decimal? @db.Decimal(10, 2) // Amount to host after fees
+
+  // External references
+  externalTxnId       String? // External payment provider ID
+  parentTransaction   Transaction?  @relation("TransactionParent", fields: [parentTransactionId], references: [id])
+  parentTransactionId String? // For refunds, payouts linked to original
+  childTransactions   Transaction[] @relation("TransactionParent")
+
+  // Metadata
+  description String?
+  notes       String?
+  metadata    Json? // Flexible metadata storage
+
+  // Timestamps
+  processedAt DateTime?
+  settledAt   DateTime? // When funds actually settled
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Admin approval (for manual transactions)
+  approvedBy   User?     @relation("TransactionApprovedBy", fields: [approvedById], references: [id])
+  approvedById String?
+  approvedAt   DateTime?
+
+  //track withdrawal status
+  payoutStatus payoutStatus @default(NULL)
+
+  @@index([type])
+  @@index([status])
+  @@index([payerId])
+  @@index([payeeId])
+  @@index([bookingId])
+  @@index([couponId])
+  @@index([experienceId])
+  @@index([stripePaymentIntent])
+  @@index([parentTransactionId])
+  @@index([createdAt])
+  @@map("transactions")
+}
+
+enum payoutStatus {
+  NULL
+  UNPAID
+  PENDING
+  PAID
+}
+
+enum TransactionStatus {
+  PENDING
+  PROCESSING
+  SUCCESS
+  FAILED
+  REJECTED
+  CANCELLED
+  PARTIALLY_REFUNDED
+  FULLY_REFUNDED
+  DISPUTED
+}
+
+enum PaymentProvider {
+  STRIPE
+  STRIPE_CONNECT
+  CASH
+  WALLET
+}
+
+enum TransactionType {
+  // Customer transactions
+  BOOKING_PAYMENT // Customer → Platform (for booking)
+  COUPON_PURCHASE // Customer → Platform (for coupon)
+
+  // Platform transactions
+  HOST_PAYOUT // Platform → Host (earnings transfer)
+  ADMIN_COMMISSION // Platform commission (tracking)
+
+  // Refund transactions
+  BOOKING_REFUND // Platform → Customer (cancelled booking)
+  COUPON_REFUND // Platform → Customer (cancelled coupon)
+
+  // Manual transactions
+  MANUAL_DEPOSIT // Admin → Host (manual credit)
+  MANUAL_WITHDRAWAL // Host → Admin (manual debit)
+  ADJUSTMENT // Admin adjustments
+}
+
+enum Currency {
+  USD
+  EUR
+  GBP
+}
+
+enum PaymentMethod {
+  STRIPE
+  BKASH
+  NAGAD
+  ROCKET
+  MANUAL
+  CASH
+  WALLET
+}
+
+model Review {
+  id           String       @id @default(ulid()) @map("reviewId")
+  eventId      String?
+  event        Events?      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  experienceId String
+  experience   Experience   @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+  reviewer     User         @relation("Reviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
+  reviewerId   String
+  reviewee     User         @relation("Reviewee", fields: [revieweeId], references: [id], onDelete: Cascade)
+  revieweeId   String
+  rating       Int          @default(0)
+  title        String?
+  comment      String
+  status       ReviewStatus @default(PENDING)
+  createdAt    DateTime     @default(now())
+  replyed      String?
+  repliedAt    DateTime?
+
+  @@index([rating])
+  @@index([eventId])
+  @@index([createdAt])
+  @@index([reviewerId])
+  @@map("reviews")
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Coupon {
+  id     String  @id @default(ulid())
+  code   String  @unique
+  qrCode String? @unique
+
+  // Customer relationship (who bought the coupon)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  // Experience relationship (where coupon can be redeemed)
+  experience   Experience @relation(fields: [experienceId], references: [id])
+  experienceId String
+
+  // Coupon details
+  type            CouponType
+  title           String
+  description     String
+  value           Float // Monetary value
+  currency        String     @default("USD")
+  discountPercent Int?
+
+  // Usage tracking
+  maxUses   Int          @default(1)
+  usedCount Int          @default(0)
+  status    CouponStatus @default(ACTIVE)
+
+  // Validity
+  validFrom DateTime
+  validTo   DateTime
+
+  // Metadata
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Purchase tracking
+  purchaseTransaction   Transaction? @relation("CouponPurchase", fields: [purchaseTransactionId], references: [id])
+  purchaseTransactionId String?
+
+  // Relationships
+  redemptions  CouponRedemption[]
+  transactions Transaction[] // Transactions related to this coupon
+
+  @@index([status])
+  @@index([experienceId])
+  @@index([userId])
+  @@index([validFrom, validTo])
+  @@index([userId, status])
+  @@index([experienceId, status])
+  @@map("coupons")
+}
+
+model CouponRedemption {
+  id String @id @default(ulid())
+
+  // Relationships
+  coupon       Coupon     @relation(fields: [couponId], references: [id])
+  couponId     String
+  customer     User       @relation("CustomerRedemptions", fields: [customerId], references: [id])
+  customerId   String // User who bought/owns the coupon
+  experience   Experience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+  experienceId String
+  host         User       @relation("HostRedemptions", fields: [hostId], references: [id])
+  hostId       String // Experience owner who validated redemption
+
+  // Redemption details
+  redeemedAt DateTime @default(now())
+  amountUsed Float? // For partial redemptions
+  notes      String?
+
+  // Fraud prevention
+  ipAddress String?
+  location  String? // GPS coordinates
+
+  @@index([couponId])
+  @@index([customerId])
+  @@index([experienceId])
+  @@index([hostId])
+  @@index([redeemedAt])
+  @@map("coupon_redemptions")
+}
+
+enum CouponStatus {
+  ACTIVE
+  USED
+  EXPIRED
+  CANCELLED
+}
+
+enum CouponType {
+  PREPAID_VALUE // $20 to spend at venue
+  SPECIFIC_DEAL // 2 cocktails for $15
+  BONUS_INCENTIVE // buy $30, get $5 extra
+}
+
+model Amenity {
+  id          String              @id @default(ulid())
+  name        String
+  slug        String              @unique @db.VarChar(255)
+  icon        String?
+  description String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  experiences ExperienceAmenity[]
+
+  @@index([createdAt])
+  @@index([name])
+  @@index([slug])
+  @@map("amenities")
+}
+
+model ExperienceAmenity {
+  id           String     @id @default(ulid())
+  experience   Experience @relation(fields: [experienceId], references: [id])
+  experienceId String
+  amenity      Amenity    @relation(fields: [amenityId], references: [id])
+  amenityId    String
+
+  @@unique([experienceId, amenityId])
+  @@index([amenityId])
+  @@map("experience_amenities")
+}
+
+model ExperienceMedia {
+  id           String      @id @default(ulid())
+  experience   Experience  @relation(fields: [experienceId], references: [id])
+  experienceId String
+  status       MediaStatus @default(ACTIVE)
+  title        String?
+  description  String?
+  url          String
+  type         MediaType
+  uploadedAt   DateTime    @default(now())
+
+  @@index([uploadedAt])
+  @@map("images")
+}
+
+enum MediaStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+  AUDIO
+  FILE
+  REELS
+}
+
+model ExperienceTranslation {
+  id           String       @id @default(ulid())
+  experience   Experience   @relation(fields: [experienceId], references: [id])
+  experienceId String
+  languageCode LanguageCode @default(en)
+  title        String
+  description  String
+
+  @@unique([experienceId, languageCode])
+  @@map("translations")
+}
+
+enum LanguageCode {
+  en
+  bn
+  es
+  fr
+}
+
+model MessageRoom {
+  id           String     @id @default(ulid())
+  sender       User       @relation("MessageRoomSender", fields: [senderId], references: [id])
+  senderId     String
+  receiver     User       @relation("MessageRoomReceiver", fields: [receiverId], references: [id])
+  receiverId   String
+  experienceId String
+  experience   Experience @relation(fields: [experienceId], references: [id])
+  bookingId    String?
+  booking      Booking?   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  messages     Message[]
+
+  @@unique([senderId, receiverId, experienceId])
+  @@index([createdAt])
+  @@index([bookingId])
+  @@index([receiverId])
+  @@index([senderId])
+  @@map("message_rooms")
+}
+
+model Message {
+  id       String      @id @default(ulid())
+  room     MessageRoom @relation(fields: [roomId], references: [id])
+  roomId   String
+  sender   User        @relation("MessageSender", fields: [senderId], references: [id])
+  senderId String
+  receiver User        @relation("MessageReceiver", fields: [receiverId], references: [id])
+
+  receiverId String
+  message    String
+  attachment String?
+  type       MessageType @default(TEXT)
+  sentAt     DateTime    @default(now())
+  isRead     Boolean     @default(false)
+
+  @@index([isRead])
+  @@index([sentAt])
+  @@index([receiverId])
+  @@index([senderId])
+  @@index([roomId])
+  @@map("messages")
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  AUDIO
+  FILE
+}
+
+model Notification {
+  id        String           @id @default(ulid())
+  user      User             @relation(fields: [userId], references: [id])
+  userId    String
+  type      NotificationType @default(MESSAGE)
+  title     String
+  link      String?
+  message   String
+  image     String?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  @@index([createdAt, userId])
+  @@index([readAt])
+  @@index([userId])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  NOTIFY
+  BOOKING
+  REVIEW
+  MESSAGE
+  WISHLIST
+  COUPON
+  EVENT
+  EXPERIENCE
+  PAYMENT
+  SYSTEM
+  ALERT
+  EXPERIENCE_SUBMITTED
+}
+
+model ActivityLog {
+  id        String   @id @default(ulid())
+  user      User?    @relation(fields: [userId], references: [id])
+  type      String
+  userId    String?
+  action    String
+  metadata  String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId])
+  @@map("activity_log")
+}
+
+model featuredExperience {
+  id           String     @id @default(ulid())
+  experience   Experience @relation(fields: [experienceId], references: [id])
+  experienceId String @unique
+  createdAt    DateTime   @default(now())
+
+  @@index([createdAt])
+  @@index([experienceId])
+  @@map("featured_experiences")
+}
+
+
+model WishlistItem {
+  id           String     @id @default(ulid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id])
+  experience   Experience @relation(fields: [experienceId], references: [id])
+  experienceId String
+  createdAt    DateTime   @default(now())
+
+  @@unique([userId, experienceId])
+  @@index([userId])
+  @@index([experienceId])
+  @@index([createdAt])
+  @@map("wishlist_items")
+}
+
+model HostVerification {
+  id         String    @id @default(ulid())
+  user       User      @relation(fields: [userId], references: [id])
+  userId     String
+  idDocument String
+  verified   Boolean
+  verifiedAt DateTime?
+
+  @@index([verified])
+  @@index([verifiedAt])
+  @@index([userId])
+  @@map("host_verifications")
+}
+
+model BusinessInfo {
+  id                 String             @id @default(ulid())
+  userId             String             @unique
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status             BusinessInfoStatus @default(PENDING)
+  name               String?
+  type               String?
+  description        String?
+  registrationNumber String?
+  taxvatNumber       String?
+  country            String?
+  businessPhone      String?
+  businessEmail      String?
+  streetAddress      String?
+  city               String?
+  state              String?
+  zipCode            String?
+  address            String?
+  phone              String?
+  email              String?
+  socialLinks        String[]           @default([])
+  isVerified         Boolean            @default(false)
+  documents          String[]           @default([])
+  verifiedAt         DateTime?
+  message            String?
+  verifiedById       String?
+  createdAt          DateTime           @default(now())
+
+  @@index([verifiedAt])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("business_info")
+}
+
+enum BusinessInfoStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+model NotificationsSettings {
+  id                  String   @id @default(ulid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  newBooking          Boolean  @default(true)
+  bookingcancellation Boolean  @default(true)
+  bookingreminder     Boolean  @default(true)
+  payoutintiated      Boolean  @default(true)
+  payoutcompleted     Boolean  @default(true)
+  newreview           Boolean  @default(true)
+  experienceupdated   Boolean  @default(true)
+  tipsforhost         Boolean  @default(true)
+  promotionaloffer    Boolean  @default(true)
+  loginnewdevice      Boolean  @default(true)
+  policychange        Boolean  @default(true)
+  securityalert       Boolean  @default(true)
+  updatedAt           DateTime @updatedAt
+  createdAt           DateTime @default(now())
+
+  @@index([userId])
+  @@map("notifications_settings")
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  EXPIRED
+  REFUNDED
+}
+
+model Blog {
+  id          String     @id @default(ulid())
+  title       String
+  slug        String     @unique @db.VarChar(255) // for SEO-friendly URLs
+  content     String     @db.Text
+  excerpt     String?    @db.Text // short description
+  coverImage  String? // optional featured image
+  status      BlogStatus @default(DRAFT) // DRAFT | PUBLISHED
+  publishedAt DateTime? // only set when published
+  isFeatured  Boolean    @default(false) // used for homepage
+  isDeleted   Boolean    @default(false)
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  tags       Tag[]      @relation("BlogTags")
+  categories Category[] @relation("BlogCategories")
+
+  seo       SeoMetadata? @relation("BlogToSeoMetadata", fields: [seoId], references: [id])
+  seoId     String?      @unique
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  faq       HelpFaq[]
+  
+
+  @@index([isFeatured])
+  @@index([isDeleted])
+  @@index([status])
+  @@index([slug])
+  @@index([authorId])
+  @@index([publishedAt])
+  @@index([createdAt])
+  @@map("blog")
+}
+
+enum BlogStatus {
+  DRAFT
+  PUBLISHED
+}
+
+model WithdrawalRequest {
+  id          String                  @id @default(ulid())
+  hostId      String
+  host        User                    @relation("HostWithdrawals", fields: [hostId], references: [id])
+  amount      Decimal                 @db.Decimal(10, 2)
+  currency    Currency                @default(USD)
+  description String?
+  status      WithdrawalRequestStatus @default(PENDING)
+  requestedAt DateTime                @default(now())
+  processedAt DateTime?
+  adminNotes  String?
+
+  // Admin approval
+  approvedBy   User?     @relation("WithdrawalApprovals", fields: [approvedById], references: [id])
+  approvedById String?
+  approvedAt   DateTime?
+
+  // Stripe transfer tracking
+  stripeTransferId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([hostId])
+  @@index([status])
+  @@index([requestedAt])
+  @@index([createdAt])
+  @@map("withdrawal_requests")
+}
+
+enum WithdrawalRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model HelpFaq {
+  id        String        @id @default(ulid())
+  question  String
+  answer    String
+  blog      Blog?         @relation(fields: [blogId], references: [id])
+  blogId    String?
+  type      HelpType      @default(OTHER)
+  status    HelpFaqStatus @default(PUBLISHED)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  deletedAt DateTime?
+  // Link back to settings.faq relation
+ 
+  becomehost becomehost[] @relation("BecomeHostToHelpFaq")
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([updatedAt])
+  @@index([question])
+  @@index([answer])
+  @@index([type])
+  @@index([deletedAt])
+  @@map("helpfaqs")
+}
+
+enum HelpFaqStatus {
+  DRAFT
+  REVIEW
+  PUBLISHED
+  ARCHIVED
+  QUESTIONS
+}
+
+enum HelpType {
+  BOOKING
+  PAYMENT
+  EVENT
+  EXPERIENCE
+  ACCOUNT
+  COUPON
+  REVIEW
+  MESSAGE
+  NOTIFICATION
+  SYSTEM
+  BECOMEHOST
+  OTHER
+}
+
+enum ReelPlatform {
+  YOUTUBE
+  TIKTOK
+  FACEBOOK
+}
+
+model Reels {
+  id           String       @id @default(ulid())
+  platform     ReelPlatform
+  videoId      String // Store only unique video ID from platform
+  title        String?
+  description  String?
+  thumbnail    String? // Optional cached thumbnail
+  duration     Int? // Seconds
+  isActive     Boolean      @default(true)
+  createdBy    User         @relation(fields: [createdById], references: [id])
+  createdById  String
+  experienceId String
+  experience   Experience   @relation(fields: [experienceId], references: [id])
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  deletedAt    DateTime?
+
+  @@unique([platform, videoId]) // Prevent duplicates
+  @@index([platform])
+  @@index([isActive])
+  @@index([experienceId])
+  @@index([createdById])
+  @@index([createdAt])
+  @@index([updatedAt])
+  @@index([deletedAt])
+  @@map("reels")
+}
+
+model FeedBack {
+  id        String       @id @default(ulid())
+  email     String
+  name      String
+  message   String
+  userId    String?
+  platform  PlatformType @default(WEOUT_WEB)
+  user      User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  
+  @@index([userId])
+  @@index([createdAt])
+  @@map("feedback")
+}
+
+enum PlatformType {
+  WEOUT_WEB
+  WEOUT_ANDROID
+  WEOUT_IOS
+}
+
+/// Track Stripe webhook events for idempotency and auditing
+enum WebhookEventStatus {
+  PENDING
+  PROCESSED
+  FAILED
+}
+
+model WebhookEvent {
+  id            String             @id @default(ulid())
+  stripeEventId String             @unique
+  type          String
+  status        WebhookEventStatus @default(PENDING)
+  firstSeenAt   DateTime           @default(now())
+  processedAt   DateTime?
+  error         String?
+  payload       Json?
+
+  @@index([status])
+  @@index([firstSeenAt])
+}
+
+// Sitemap change frequency for SEO
+enum ChangeFrequency {
+  ALWAYS
+  HOURLY
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+  NEVER
+}
+
+model heroSection {
+  id        String      @id @default(ulid())
+  title     String
+  description String?
+  sortName String?
+  image String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  
+
+  @@index([createdAt])
+  @@index([updatedAt])
+  @@map("hero_section")
+}
+
+model becomehost {
+  id        String      @id @default(ulid())
+  heading     String
+  subHeading String?
+  image String?
+  content   String?     @db.Text
+  seo       SeoMetadata @relation("BecomeHostToSeoMetadata", fields: [seoId], references: [id])
+  seoId     String      @unique
+  faq       HelpFaq[]   @relation("BecomeHostToHelpFaq")
+  cards     card[]
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  
+
+  @@index([createdAt])
+  @@index([updatedAt])
+}
+
+model banner {
+  id        String      @id @default(ulid())
+  title     String
+  description String?
+  image String?
+  isActive  Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  @@index([isActive])
+  @@index([createdAt])
+  @@index([updatedAt])
+}
+
+model card {
+  id        String      @id @default(ulid())
+  title     String
+  description String?
+  image String?
+  isActive  Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  becomehostId String?
+  becomehost   becomehost? @relation(fields: [becomehostId], references: [id]) 
+
+
+  @@index([isActive])
+  @@index([createdAt])
+  @@index([updatedAt])
+}
+
+model settings {
+  id        String      @id @default(ulid())
+  siteName String
+  siteUrl String
+  siteLogo String?
+  siteFavicon String?
+  siteDescription String?
+  siteKeywords String?
+  siteEmail String?
+  sitePhone String?
+  siteAddress String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  
+
+  @@index([createdAt])
+  @@index([updatedAt])
+}
+
+model contactinformation {
+  id        String      @id @default(ulid())
+  email String
+  secondaryEmail String?
+  phone String
+  phoneMessage String?
+  secondaryPhone String?
+  address String?
+  secondaryAddress String?
+  businessHours String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  
+}
+
+model testimonial {
+  id        String      @id @default(ulid())
+  name      String
+  badgeTitle String?
+  designation String?
+  image String?
+  title String?
+  description String?
+  position String?
+  isActive Boolean @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@index([isActive])
+  @@index([createdAt])
+  @@index([updatedAt])
+}
+
+model privacyPolicy {
+  id        String      @id @default(ulid())
+  title     String
+  description String?
+  image String?
+  content   String?     @db.Text
+  seo       SeoMetadata @relation("PrivacyPolicyToSeoMetadata", fields: [seoId], references: [id])
+  seoId     String      @unique
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  
+
+  @@index([createdAt])
+  @@index([updatedAt])
+}
+
+model termsAndService {
+  id        String      @id @default(ulid())
+  title     String
+  description String?
+  image String?
+  content   String?     @db.Text
+  seo       SeoMetadata @relation("TermsAndConditionsToSeoMetadata", fields: [seoId], references: [id])
+  seoId     String      @unique
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@index([createdAt])
+  @@index([updatedAt])
+}
+
+model trustandSafety {
+  id        String      @id @default(ulid())
+  title     String
+  description String?
+  image String?
+  content   String?     @db.Text
+  seo       SeoMetadata @relation("TrustAndSafetyToSeoMetadata", fields: [seoId], references: [id])
+  seoId     String      @unique
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@index([createdAt])
+  @@index([updatedAt])
+}
+
+model communityGuidelines {
+  id        String      @id @default(ulid())
+  title     String
+  description String?
+  image String?
+  content   String?     @db.Text
+  seo       SeoMetadata @relation("CommunityGuidelinesToSeoMetadata", fields: [seoId], references: [id])
+  seoId     String      @unique
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  
+  @@index([createdAt])
+  @@index([updatedAt])
+}
+
+model cancellationPolicy {
+  id        String      @id @default(ulid())
+  title     String
+  description String?
+  image String?
+  content   String?     @db.Text
+  seo       SeoMetadata @relation("CancellationPolicyToSeoMetadata", fields: [seoId], references: [id])
+  seoId     String      @unique
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@index([createdAt])
+  @@index([updatedAt])
+}
+
+model career {
+  id        String      @id @default(ulid())
+  title     String
+  description String?
+  image String?
+  content   String?     @db.Text
+  seo       SeoMetadata @relation("CareerToSeoMetadata", fields: [seoId], references: [id])
+  seoId     String      @unique
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  
+  @@index([createdAt])
+  @@index([updatedAt])
+}
+
+model SeoMetadata {
+  id                 String           @id @default(ulid())
+  metaTitle          String
+  becomehost         becomehost?      @relation("BecomeHostToSeoMetadata")
+  privacyPolicy      privacyPolicy?   @relation("PrivacyPolicyToSeoMetadata")
+  termsAndService termsAndService?   @relation("TermsAndConditionsToSeoMetadata")
+  cancellationPolicy cancellationPolicy?   @relation("CancellationPolicyToSeoMetadata")
+  career career?   @relation("CareerToSeoMetadata")
+  trustandSafety trustandSafety?   @relation("TrustAndSafetyToSeoMetadata")
+  communityGuidelines communityGuidelines?   @relation("CommunityGuidelinesToSeoMetadata")
+  blog Blog?   @relation("BlogToSeoMetadata")
+  
+  metaDescription    String?
+  metaKeywords       String?
+  // Robots directives
+  robotsIndex        Boolean          @default(true) // noindex if false
+  robotsFollow       Boolean          @default(true) // nofollow if false
+  // Open Graph
+  ogTitle            String?
+  ogDescription      String?
+  ogImage            String?
+  ogType             String? // website, article, etc.
+  ogSiteName         String?
+
+  structuredData     Json? // JSON-LD schema.org
+  // Sitemap
+  changefreq         ChangeFrequency?
+  priority           Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+}
+
+// ==================== Loyalty Program ====================
+
+enum RewardPointStatus {
+  ACTIVE
+  REDEEMED
+  EXPIRED
+  ADJUSTMENT
+}
+
+enum PointRuleAction {
+  BOOKING
+  SIGNUP
+  REFERRAL_SIGNUP
+  REFERRAL_PURCHASE
+  REVIEW_SUBMITTED
+  BIRTHDAY_BONUS
+  MANUAL_ADJUSTMENT
+  LOGIN_STREAK
+  SOCIAL_SHARE
+}
+
+model LoyaltyTier {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  priority      Int
+  minPoints     Int
+  durationDays  Int
+  benefits      Json?
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  // back-relation
+  userLoyalties UserLoyalty[]
+
+  @@index([priority])
+}
+
+model PointRule {
+  id              String           @id @default(cuid())
+  action          PointRuleAction
+  name            String
+  basePoints      Int              @default(0)
+  perUnit         Boolean          @default(false)
+  unitAmount      Int?
+  tierMultipliers Json?
+  expiryMonths    Int              @default(12)
+  active          Boolean          @default(true)
+  metadata        Json?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  // back-relation
+  rewards         RewardPoints[]
+
+  @@index([action, active])
+}
+
+model RewardPoints {
+  id           String            @id @default(cuid())
+  userId       String
+  user         User              @relation(fields: [userId], references: [id])
+  ruleId       String?
+  rule         PointRule?        @relation(fields: [ruleId], references: [id])
+  action       PointRuleAction
+  points       Int
+  remaining    Int
+  status       RewardPointStatus @default(ACTIVE)
+  reason       String?
+  earnedAt     DateTime          @default(now())
+  expiresAt    DateTime?
+  referencedId String?
+  createdAt    DateTime          @default(now())
+
+  @@index([userId, status])
+  @@index([expiresAt])
+}
+
+model Redemption {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  points     Int
+  rewardCode String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model UserLoyalty {
+  id            String       @id @default(cuid())
+  userId        String       @unique
+  user          User         @relation(fields: [userId], references: [id])
+  tierId        String?
+  tier          LoyaltyTier? @relation(fields: [tierId], references: [id])
+  currentPoints Int          @default(0)
+  totalEarned   Int          @default(0)
+  totalRedeemed Int          @default(0)
+  updatedAt     DateTime     @updatedAt
+}
+
+model TierHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  oldTierId String?
+  newTierId String?
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model ScheduledJobLog {
+  id      String   @id @default(cuid())
+  name    String
+  runAt   DateTime @default(now())
+  status  String
+  payload Json?
+}
+
