@@ -38,31 +38,8 @@ export class WishlistService {
           id: true,
           createdAt: true,
           userId: true,
-          experienceId: true,
-          experience: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-              address: true,
-              price: true,
-              startDate: true,
-              endDate: true,
-              latitude: true,
-              longitude: true,
-              averageRating: true,
-              badges: {
-                select: { badge: { select: { name: true, icon: true } } },
-              },
-              _count: { select: { reviews: true } },
-              media: {
-                orderBy: { uploadedAt: 'desc' },
-                where: { type: 'IMAGE' },
-                take: 1,
-                select: { url: true },
-              },
-            },
-          },
+          eventId: true,
+          event: true,
         },
       }),
       this.prisma.wishlistItem.count({ where: { userId } }),
@@ -108,31 +85,8 @@ export class WishlistService {
           id: true,
           createdAt: true,
           userId: true,
-          experienceId: true,
-          experience: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-              address: true,
-              price: true,
-              startDate: true,
-              endDate: true,
-              latitude: true,
-              longitude: true,
-              averageRating: true,
-              badges: {
-                select: { badge: { select: { name: true, icon: true } } },
-              },
-              _count: { select: { reviews: true } },
-              media: {
-                orderBy: { uploadedAt: 'desc' },
-                where: { type: 'IMAGE' },
-                take: 1,
-                select: { url: true },
-              },
-            },
-          },
+          eventId: true,
+          event: true,
         },
       }),
       this.prisma.wishlistItem.count({ where: { userId } }),
@@ -148,7 +102,7 @@ export class WishlistService {
 
   async addItem(experienceId: string, userId: string) {
     //check if experience exists
-    const experience = await this.prisma.experience.findUnique({
+    const experience = await this.prisma.event.findUnique({
       where: { id: experienceId },
     });
 
@@ -158,7 +112,7 @@ export class WishlistService {
     //check if user has already added this experience
     const exists = await this.prisma.wishlistItem.findFirst({
       where: {
-        AND: [{ userId: userId }, { experienceId: experienceId }],
+        AND: [{ userId: userId }, { eventId: experienceId }],
       },
     });
 
@@ -169,7 +123,7 @@ export class WishlistService {
     const wishlist = await this.prisma.wishlistItem.create({
       data: {
         userId: userId,
-        experienceId: experienceId,
+        eventId: experienceId,
       },
     });
     return { status: true, data: wishlist };
@@ -179,7 +133,7 @@ export class WishlistService {
     //check if user has already added this experience
 
     const wishlist = await this.prisma.wishlistItem.deleteMany({
-      where: { AND: [{ userId: userId }, { experienceId: experienceId }] },
+      where: { AND: [{ userId: userId }, { eventId: experienceId }] },
     });
 
     if (wishlist.count === 0) {

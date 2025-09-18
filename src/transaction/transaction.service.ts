@@ -30,7 +30,7 @@ export interface CreateTransactionDto {
   stripeAccountId?: string;
   stripeChargeId?: string;
   platformFee?: number;
-  hostAmount?: number;
+  sellerAmount?: number;
   externalTxnId?: string;
   parentTransactionId?: string;
   notes?: string;
@@ -95,13 +95,6 @@ export class TransactionService {
       //   if (!booking) throw new BadRequestException('Booking not found');
       // }
 
-      if (data.couponId) {
-        const coupon = await tx.coupon.findUnique({
-          where: { id: data.couponId },
-        });
-        if (!coupon) throw new BadRequestException('Coupon not found');
-      }
-
       // Create transaction
       const transaction = await tx.transaction.create({
         data: {
@@ -112,14 +105,15 @@ export class TransactionService {
           payerId: data.payerId,
           payeeId: data.payeeId,
           bookingId: data.bookingId,
-          couponId: data.couponId,
-          experienceId: data.experienceId,
+          eventId: data.experienceId,
           stripePaymentIntent: data.stripePaymentIntent,
           stripeTransferId: data.stripeTransferId,
           stripeAccountId: data.stripeAccountId,
           stripeChargeId: data.stripeChargeId,
           platformFee: data.platformFee ? new Decimal(data.platformFee) : null,
-          hostAmount: data.hostAmount ? new Decimal(data.hostAmount) : null,
+          sellerAmount: data.sellerAmount
+            ? new Decimal(data.sellerAmount)
+            : null,
           externalTxnId: data.externalTxnId,
           description: data.description,
           notes: data.notes,
@@ -128,8 +122,6 @@ export class TransactionService {
           payer: { select: { id: true, name: true, email: true } },
           payee: { select: { id: true, name: true, email: true } },
           booking: { select: { id: true } },
-          coupon: { select: { id: true, code: true, title: true } },
-          experience: { select: { id: true, name: true } },
         },
       });
 
@@ -174,8 +166,7 @@ export class TransactionService {
           payer: { select: { id: true, name: true, email: true } },
           payee: { select: { id: true, name: true, email: true } },
           booking: true,
-          coupon: true,
-          experience: true,
+          event: true,
         },
       });
     });
@@ -195,8 +186,8 @@ export class TransactionService {
       const booking = await tx.booking.findUnique({
         where: { id: bookingId },
         include: {
-          experience: {
-            include: { user: true },
+          seat: {
+            include: { event: true },
           },
         },
       });
@@ -206,7 +197,7 @@ export class TransactionService {
       }
 
       const platformFee = (amount * platformFeePercentage) / 100;
-      const hostAmount = amount - platformFee;
+      const sellerAmount = amount - platformFee;
 
       // Create main payment transaction
       const paymentTransaction = await tx.transaction.create({
@@ -217,11 +208,11 @@ export class TransactionService {
           provider: PaymentProvider.STRIPE_CONNECT,
           payerId: customerId,
           bookingId: bookingId,
-          experienceId: booking.experienceId,
+          eventId: booking.seat.eventId,
           stripePaymentIntent,
           platformFee: new Decimal(platformFee),
-          hostAmount: new Decimal(hostAmount),
-          description: `Booking payment for ${booking.experience.name}`,
+          sellerAmount: new Decimal(sellerAmount),
+          description: `Booking payment for ${booking.seat.event.title}`,
           status: TransactionStatus.SUCCESS,
           processedAt: new Date(),
         },
@@ -235,7 +226,7 @@ export class TransactionService {
           currency: Currency.USD,
           provider: PaymentProvider.STRIPE_CONNECT,
           parentTransactionId: paymentTransaction.id,
-          experienceId: booking.experienceId,
+          eventId: booking.seat.eventId,
           description: `Platform commission (${platformFeePercentage}%)`,
           status: TransactionStatus.SUCCESS,
           processedAt: new Date(),
@@ -254,15 +245,34 @@ export class TransactionService {
     return this.prisma.$transaction(async (tx) => {
       const booking = await tx.booking.findUnique({
         where: { id: bookingId },
-        include: {
-          experience: { include: { user: true } },
+        select: {
+          seat: {
+            select: {
+              id: true,
+              eventId: true,
+
+              event: {
+                select: {
+                  id: true,
+                  title: true,
+                  seller: {
+                    select: {
+                      id: true,
+                      stripeAccountId: true,
+                      stripeOnboardingComplete: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
           transactions: {
             where: { type: TransactionType.BOOKING_PAYMENT },
           },
         },
       });
 
-      if (!booking || !booking.transactions[0].hostAmount) {
+      if (!booking || !booking.transactions[0].sellerAmount) {
         throw new BadRequestException('Booking or host amount not found');
       }
 
@@ -273,17 +283,17 @@ export class TransactionService {
 
       return tx.transaction.create({
         data: {
-          type: TransactionType.HOST_PAYOUT,
-          amount: booking.transactions[0].hostAmount,
+          type: TransactionType.SELLER_PAYOUT,
+          amount: booking.transactions[0].sellerAmount,
           currency: Currency.USD,
           provider: PaymentProvider.STRIPE_CONNECT,
-          payeeId: booking.experience.userId,
+          payeeId: booking.seat.event.seller.id,
           bookingId: bookingId,
-          experienceId: booking.experienceId,
+          eventId: booking.seat.eventId,
           parentTransactionId: originalPayment.id,
           stripeTransferId,
           stripeAccountId,
-          description: `Host payout for ${booking.experience.name}`,
+          description: `Host payout for ${booking.seat.event.title}`,
           status: TransactionStatus.SUCCESS,
           processedAt: new Date(),
         },
@@ -292,48 +302,6 @@ export class TransactionService {
   }
 
   // ============= COUPON OPERATIONS =============
-
-  async processCouponPurchase(
-    couponId: string,
-    amount: number,
-    stripePaymentIntent: string,
-    customerId: string,
-  ) {
-    return this.prisma.$transaction(async (tx) => {
-      const coupon = await tx.coupon.findUnique({
-        where: { id: couponId },
-        include: { experience: true },
-      });
-
-      if (!coupon) {
-        throw new NotFoundException('Coupon not found');
-      }
-
-      const transaction = await tx.transaction.create({
-        data: {
-          type: TransactionType.COUPON_PURCHASE,
-          amount: new Decimal(amount),
-          currency: Currency.USD,
-          provider: PaymentProvider.STRIPE,
-          payerId: customerId,
-          couponId: couponId,
-          experienceId: coupon.experienceId,
-          stripePaymentIntent,
-          description: `Coupon purchase: ${coupon.title}`,
-          status: TransactionStatus.SUCCESS,
-          processedAt: new Date(),
-        },
-      });
-
-      // Link transaction to coupon
-      await tx.coupon.update({
-        where: { id: couponId },
-        data: { purchaseTransactionId: transaction.id },
-      });
-
-      return transaction;
-    });
-  }
 
   // ============= REFUND OPERATIONS =============
 
@@ -348,8 +316,7 @@ export class TransactionService {
         where: { id: originalTransactionId },
         include: {
           payer: true,
-          booking: true,
-          coupon: true,
+          booking: { include: { seat: true } },
         },
       });
 
@@ -370,8 +337,7 @@ export class TransactionService {
           provider: originalTransaction.provider,
           payeeId: originalTransaction.payerId, // Customer receives refund
           bookingId: originalTransaction.bookingId,
-          couponId: originalTransaction.couponId,
-          experienceId: originalTransaction.experienceId,
+          eventId: originalTransaction.booking?.seat.eventId,
           parentTransactionId: originalTransactionId,
           stripeChargeId: stripeRefundId,
           description: `Refund: ${reason}`,
@@ -406,8 +372,6 @@ export class TransactionService {
     if (filters.type) where.type = filters.type;
     if (filters.status) where.status = filters.status;
     if (filters.bookingId) where.bookingId = filters.bookingId;
-    if (filters.couponId) where.couponId = filters.couponId;
-    if (filters.experienceId) where.experienceId = filters.experienceId;
 
     if (filters.startDate || filters.endDate) {
       where.createdAt = {};
@@ -427,11 +391,16 @@ export class TransactionService {
           booking: {
             select: {
               id: true,
-              experience: { select: { id: true, name: true } },
+              seat: {
+                select: {
+                  id: true,
+                  eventId: true,
+                  event: { select: { id: true, title: true } },
+                },
+              },
             },
           },
-          coupon: { select: { id: true, code: true, title: true } },
-          experience: { select: { id: true, name: true } },
+
           parentTransaction: { select: { id: true, type: true } },
           childTransactions: { select: { id: true, type: true, amount: true } },
         },
@@ -458,11 +427,10 @@ export class TransactionService {
         payee: { select: { id: true, name: true, email: true } },
         booking: {
           include: {
-            experience: { select: { id: true, name: true } },
+            seat: { select: { id: true, eventId: true } },
           },
         },
-        coupon: { select: { id: true, code: true, title: true } },
-        experience: { select: { id: true, name: true } },
+        event: { select: { id: true, title: true } },
         parentTransaction: true,
         childTransactions: true,
         approvedBy: { select: { id: true, name: true } },
@@ -547,7 +515,7 @@ export class TransactionService {
   async getHostEarnings(hostId: string, startDate?: Date, endDate?: Date) {
     const where: Prisma.TransactionWhereInput = {
       payeeId: hostId,
-      type: TransactionType.HOST_PAYOUT,
+      type: TransactionType.SELLER_PAYOUT,
       status: TransactionStatus.SUCCESS,
     };
 
@@ -568,7 +536,7 @@ export class TransactionService {
         include: {
           booking: {
             include: {
-              experience: { select: { id: true, name: true } },
+              seat: { select: { id: true, eventId: true } },
             },
           },
         },
@@ -686,10 +654,9 @@ export class TransactionService {
           booking: {
             select: {
               id: true,
-              experience: { select: { id: true, name: true } },
+              seat: { select: { id: true, eventId: true } },
             },
           },
-          coupon: { select: { id: true, code: true, title: true } },
         },
       }),
       this.prisma.transaction.count({ where }),
@@ -721,6 +688,7 @@ export class TransactionService {
         createdAt: true,
         payer: { select: { id: true, name: true, email: true } },
         payee: { select: { id: true, name: true, email: true } },
+        event: { select: { id: true, title: true } },
         booking: {
           select: {
             id: true,
@@ -730,22 +698,6 @@ export class TransactionService {
             total: true,
             paymentMethod: true,
             status: true,
-            event: {
-              select: {
-                id: true,
-                date: true,
-                startTime: true,
-                endTime: true,
-                experience: {
-                  select: {
-                    id: true,
-                    name: true,
-                    address: true,
-                    scheduleType: true,
-                  },
-                },
-              },
-            },
           },
         },
       },
@@ -803,8 +755,7 @@ export class TransactionService {
     if (payerId) where.payerId = payerId;
     if (payeeId) where.payeeId = payeeId;
     if (bookingId) where.bookingId = bookingId;
-    if (couponId) where.couponId = couponId;
-    if (experienceId) where.experienceId = experienceId;
+
     if (parentTransactionId) where.parentTransactionId = parentTransactionId;
     if (externalTxnId)
       where.externalTxnId = {
@@ -984,11 +935,10 @@ export class TransactionService {
           booking: {
             select: {
               id: true,
-              experience: { select: { id: true, name: true } },
+              seat: { select: { id: true, eventId: true } },
             },
           },
-          coupon: { select: { id: true, code: true, title: true } },
-          experience: { select: { id: true, name: true } },
+          event: { select: { id: true, title: true } },
           parentTransaction: { select: { id: true, type: true } },
           childTransactions: { select: { id: true, type: true, amount: true } },
         },

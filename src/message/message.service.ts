@@ -35,30 +35,38 @@ export class MessageService {
   private readonly logger = new Logger(MessageService.name);
 
   async initiateMessage(body: InitMessageDto, userId: string) {
-    const existExperience = await this.prisma.experience.findUnique({
+    const existEvent = await this.prisma.event.findUnique({
       where: {
         id: body.experienceId,
       },
     });
 
-    if (!existExperience) {
-      throw new NotFoundException('Experience not found');
+    if (!existEvent) {
+      throw new NotFoundException('Event not found');
     }
 
-    if (existExperience.userId === userId) {
+    if (existEvent.sellerId === userId) {
       throw new BadRequestException(
         'You cannot initiate a message with yourself',
       );
     }
-    //Check exists messageroom this user
+    type MessageRoomWhereUniqueInputWithEventId =
+      Prisma.MessageRoomWhereUniqueInput & {
+        senderId_receiverId_eventId: {
+          senderId: string;
+          receiverId: string;
+          eventId: string;
+        };
+      };
+
     const exists = await this.prisma.messageRoom.findUnique({
       where: {
-        senderId_receiverId_experienceId: {
+        senderId_receiverId_eventId: {
           senderId: userId,
-          receiverId: existExperience.userId, // You need to provide the receiverId or set it to null
-          experienceId: body.experienceId,
+          receiverId: existEvent.sellerId,
+          eventId: body.experienceId,
         },
-      },
+      } as MessageRoomWhereUniqueInputWithEventId,
     });
 
     if (exists) {
@@ -66,7 +74,7 @@ export class MessageService {
         data: {
           message: body.message,
           senderId: userId,
-          receiverId: existExperience.userId,
+          receiverId: existEvent.sellerId,
           roomId: exists.id,
         },
       });
@@ -78,18 +86,16 @@ export class MessageService {
       };
     }
 
-    console.log(userId, existExperience.userId);
-
     const newMessageRoom = await this.prisma.messageRoom.create({
       data: {
         senderId: userId,
-        receiverId: existExperience.userId,
-        experienceId: body.experienceId,
+        receiverId: existEvent.sellerId,
+        eventId: body.experienceId,
         messages: {
           create: {
             message: body.message,
             senderId: userId,
-            receiverId: existExperience.userId, // Add this line
+            receiverId: existEvent.sellerId, // Add this line
           },
         },
       },

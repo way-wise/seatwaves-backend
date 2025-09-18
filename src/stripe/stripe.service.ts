@@ -350,78 +350,39 @@ export class StripeService {
       });
       if (!user) throw new NotFoundException('This user does not exist');
 
-      const event = await this.prisma.events.findUnique({
+      const event = await this.prisma.event.findUnique({
         where: { id: data.eventId },
         include: {
-          experience: {
+          seller: {
             select: {
               id: true,
               name: true,
-              userId: true,
-              coverImage: true,
-              status: true,
-              user: {
-                select: {
-                  id: true,
-                  stripeAccountId: true,
-                  stripeOnboardingComplete: true,
-                },
-              },
+              email: true,
+              stripeAccountId: true,
+              stripeOnboardingComplete: true,
             },
           },
-          bookings: {
-            where: {
-              status: { in: ['PENDING', 'CONFIRMED'] },
-              deletedAt: null,
+          seats: {
+            select: {
+              id: true,
+              bookings: {
+                where: {
+                  status: { in: ['PENDING', 'CONFIRMED'] },
+                  deletedAt: null,
+                },
+                select: { id: true },
+              },
             },
-            select: { id: true, guestCount: true },
           },
         },
       });
       if (!event) throw new NotFoundException('This event does not exist');
 
-      const available = event.availableTickets ?? 0;
-      if (available < data.guestCount) {
-        throw new ForbiddenException(
-          `Only ${available} tickets remaining. You requested ${data.guestCount}.`,
-        );
-      }
+      const price = new Decimal(0);
+      const discount = new Decimal(0);
 
-      if (data.guestCount > event.maxGuest) {
-        throw new ForbiddenException(
-          `This event can only accommodate ${event.maxGuest} guests.`,
-        );
-      }
-      if (event.experience.userId === userId)
-        throw new ForbiddenException('You cannot book your own experience');
-      if (event.experience.status !== 'PUBLISHED')
-        throw new ForbiddenException('This experience is not available');
-      if (event.status !== 'SCHEDULE')
-        throw new ForbiddenException('This event is not available');
-
-      if (
-        !event.experience.user.stripeAccountId ||
-        !event.experience.user.stripeOnboardingComplete
-      ) {
-        throw new BadRequestException(
-          'Host has not completed Stripe onboarding',
-        );
-      }
-
-      const currentBookedGuests = event.bookings.reduce(
-        (sum, b) => sum + b.guestCount,
-        0,
-      );
-      const totalAfterBooking = currentBookedGuests + data.guestCount;
-      if (totalAfterBooking > event.maxparticipants) {
-        const availableSlots = event.maxparticipants - currentBookedGuests;
-        throw new ForbiddenException(
-          `Only ${availableSlots} slots available. You requested ${data.guestCount} guests.`,
-        );
-      }
-
-      const basePrice = event.price.toNumber();
-      const discountPercent = event.discount.toNumber();
+      const basePrice = price.toNumber();
+      const discountPercent = discount.toNumber();
       if (basePrice <= 0) {
         throw new BadRequestException('Invalid event pricing');
       }
@@ -432,40 +393,21 @@ export class StripeService {
       const tax = 0;
       const total = subtotal - discountAmount + vat + tax;
 
-      const host = event.experience.user;
-      if (!host.stripeAccountId || !host.stripeOnboardingComplete) {
+      const seller = event.seller;
+      if (!seller.stripeAccountId || !seller.stripeOnboardingComplete) {
         throw new BadRequestException(
-          'Host has not completed Stripe onboarding',
+          'Seller has not completed Stripe onboarding',
         );
       }
 
       let appliedDiscount = 0;
       let finalAmount = total;
-      if (data.couponId) {
-        const coupon = await this.prisma.coupon.findUnique({
-          where: { id: data.couponId },
-        });
-        if (
-          coupon &&
-          coupon.status === 'ACTIVE' &&
-          coupon.validTo > new Date()
-        ) {
-          if (coupon.discountPercent) {
-            appliedDiscount = Math.round(
-              total * (Number(coupon.discountPercent) / 100),
-            );
-          } else if (coupon.value) {
-            appliedDiscount = Math.min(Number(coupon.value), total);
-          }
-          finalAmount = total - appliedDiscount;
-        }
-      }
 
       const platformFee = this.calculatePlatformFee(finalAmount, 5);
       const ctx = {
         user,
         event,
-        host,
+        seller,
         finalAmount,
         appliedDiscount,
         platformFee,
@@ -473,19 +415,6 @@ export class StripeService {
 
       // 2) Outside transaction: ensure customer exists
       const customer = await this.getOrCreateCustomer(userId);
-
-      const alreadyBooked = await this.prisma.booking.findFirst({
-        where: {
-          eventId: data.eventId,
-          userId: userId,
-          status: { in: ['PENDING', 'CONFIRMED'] },
-          deletedAt: null,
-        },
-      });
-
-      if (alreadyBooked?.status === 'CONFIRMED') {
-        throw new ForbiddenException('You have already booked this experience');
-      }
 
       // 3) Create Stripe Checkout Session outside the transaction expire 5 min
       const session = await this.stripe.checkout.sessions.create({
@@ -495,8 +424,8 @@ export class StripeService {
             price_data: {
               currency: 'usd',
               product_data: {
-                name: ctx.event.experience.name,
-                description: 'Experience booking',
+                name: ctx.event.title,
+                description: 'Event booking',
               },
               unit_amount: Math.round(ctx.finalAmount * 100),
             },
@@ -510,11 +439,10 @@ export class StripeService {
         customer: customer.id,
         payment_intent_data: {
           application_fee_amount: Math.round(ctx.platformFee * 100),
-          transfer_data: { destination: ctx.host.stripeAccountId as string },
+          transfer_data: { destination: ctx.seller.stripeAccountId as string },
           metadata: {
-            experienceId: ctx.event.experienceId,
             eventId: data.eventId || '',
-            hostId: ctx.host.id,
+            sellerId: ctx.seller.id,
             customerId: customer.id,
             couponId: data.couponId || '',
             appliedDiscount: ctx.appliedDiscount.toString(),
@@ -522,9 +450,9 @@ export class StripeService {
           },
         },
         metadata: {
-          experienceId: ctx.event.experienceId,
+          eventId: data.eventId,
           customerId: customer.id,
-          hostId: ctx.host.id,
+          sellerId: ctx.seller.id,
         },
       });
 
@@ -532,24 +460,16 @@ export class StripeService {
       await this.prisma.$transaction(async (tx) => {
         // Re-read event inside the transaction to re-validate availability
 
-        // Decrement available tickets
-        await tx.events.update({
-          where: { id: event.id },
-          data: { availableTickets: available - data.guestCount },
-        });
-
         await tx.booking.create({
           data: {
             userId: userId,
-            eventId: data.eventId,
             guestCount: data.guestCount,
             status: BookingStatus.PENDING,
-            experienceId: ctx.event.experienceId,
-            startDate: ctx.event.date,
-            price: ctx.event.price,
+            seatId: data.eventId,
+            startDate: ctx.event.startTime,
+            price: price,
             discount: appliedDiscount + discountAmount,
             paymentMethod: 'STRIPE',
-            couponId: data.couponId,
             tax,
             vat,
             total,
@@ -560,14 +480,13 @@ export class StripeService {
                 currency: Currency.USD,
                 provider: PaymentProvider.STRIPE_CONNECT,
                 payerId: userId,
-                payeeId: ctx.host.id,
-                experienceId: ctx.event.experienceId,
-                couponId: data.couponId,
+                payeeId: ctx.seller.id,
+                eventId: ctx.event.id,
                 stripePaymentIntent: session.id,
-                stripeAccountId: ctx.host.stripeAccountId as string,
+                stripeAccountId: ctx.seller.stripeAccountId as string,
                 platformFee: ctx.platformFee,
-                hostAmount: ctx.finalAmount - ctx.platformFee,
-                description: `Payment for ${ctx.event.experience.name}`,
+                sellerAmount: ctx.finalAmount - ctx.platformFee,
+                description: `Payment for ${ctx.event.title}`,
                 externalTxnId: session.id,
                 metadata: {
                   reservedAt: new Date().toISOString(),
@@ -606,7 +525,7 @@ export class StripeService {
       });
 
       this.logger.log(
-        `Created Checkout Session ${session.id} for experience ${ctx.event.experienceId}`,
+        `Created Checkout Session ${session.id} for event ${ctx.event.id} and user ${userId}`,
       );
 
       return {
@@ -635,168 +554,6 @@ export class StripeService {
    * Create Stripe Payment Link for booking (Simple URL-based payments)
    * Enhanced with customer association for better tracking
    */
-  async createPaymentLink(
-    data: CreatePaymentIntentDto & { savePaymentMethod?: boolean },
-  ) {
-    return this.prisma.$transaction(async (tx) => {
-      try {
-        // Get experience details
-        const experience = await tx.experience.findUnique({
-          where: { id: data.experienceId },
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                stripeAccountId: true,
-                stripeCustomerId: true,
-                stripeOnboardingComplete: true,
-              },
-            },
-          },
-        });
-
-        if (!experience) {
-          throw new NotFoundException('Experience not found');
-        }
-
-        const host = experience.user;
-        if (!host.stripeAccountId || !host.stripeOnboardingComplete) {
-          throw new BadRequestException(
-            'Host has not completed Stripe onboarding',
-          );
-        }
-
-        // Calculate platform fee
-        const platformFee = this.calculatePlatformFee(
-          data.amount,
-          data.platformFeePercentage,
-        );
-
-        // Apply coupon discount if provided
-        let appliedDiscount = 0;
-        let finalAmount = data.amount;
-
-        if (data.couponId) {
-          const coupon = await tx.coupon.findUnique({
-            where: { id: data.couponId },
-          });
-
-          if (
-            coupon &&
-            coupon.status === 'ACTIVE' &&
-            coupon.validTo > new Date()
-          ) {
-            if (coupon.discountPercent) {
-              appliedDiscount = Math.round(
-                data.amount * (Number(coupon.discountPercent) / 100),
-              );
-            } else if (coupon.value) {
-              appliedDiscount = Math.min(Number(coupon.value), data.amount);
-            }
-            finalAmount = data.amount - appliedDiscount;
-          }
-        }
-
-        // Create Stripe Product for this experience (if not exists)
-        const product = await this.stripe.products.create({
-          name: experience.name,
-          description: 'Experience booking',
-          metadata: {
-            experienceId: data.experienceId,
-            hostId: host.stripeCustomerId,
-          },
-        });
-
-        // Create Stripe Price for this booking
-        const price = await this.stripe.prices.create({
-          product: product.id,
-          unit_amount: Math.round(finalAmount * 100), // Convert to cents
-          currency: (data.currency || Currency.USD).toLowerCase(),
-          metadata: {
-            experienceId: data.experienceId,
-            customerId: data.customerId,
-            platformFee: platformFee.toString(),
-            appliedDiscount: appliedDiscount.toString(),
-          },
-        });
-
-        // Create Payment Link
-        const paymentLink = await this.stripe.paymentLinks.create({
-          line_items: [
-            {
-              price: price.id,
-              quantity: 1,
-            },
-          ],
-          payment_intent_data: {
-            metadata: {
-              experienceId: data.experienceId,
-              eventId: data.eventId || '',
-              hostId: host.stripeAccountId,
-              customerId: data.customerId,
-              couponId: data.couponId || '',
-              appliedDiscount: appliedDiscount.toString(),
-              paymentType: 'booking_payment',
-            },
-          },
-          metadata: {
-            experienceId: data.experienceId,
-            customerId: data.customerId,
-            hostId: host.stripeAccountId,
-          },
-          after_completion: {
-            type: 'redirect',
-            redirect: {
-              url: `${this.configService.get('APP_CLIENT_URL')}/booking/success?session_id={CHECKOUT_SESSION_ID}`,
-            },
-          },
-        });
-
-        // // Create transaction record
-        // const transaction = await this.transactionService.createTransaction({
-        //   type: TransactionType.BOOKING_PAYMENT,
-        //   bookingId: data.bookingId,
-        //   amount: finalAmount,
-        //   currency: data.currency || Currency.USD,
-        //   provider: PaymentProvider.STRIPE_CONNECT,
-        //   payerId: data.userId,
-        //   payeeId: host.id, // Use the host's user ID, not Stripe customer ID
-        //   experienceId: data.experienceId,
-        //   couponId: data.couponId,
-        //   stripeAccountId: host.stripeAccountId, // Use the host's Stripe Connect account ID
-        //   platformFee,
-        //   hostAmount: finalAmount - platformFee,
-        //   description: `Payment for ${experience.name}`,
-        //   externalTxnId: paymentLink.id, // Store payment link ID
-        // });
-
-        this.logger.log(
-          `Created Payment Link ${paymentLink.id} for experience ${data.experienceId}`,
-        );
-
-        return {
-          status: true,
-          paymentLinkId: paymentLink.id,
-          paymentUrl: paymentLink.url,
-          platformFee,
-          hostAmount: finalAmount - platformFee,
-          appliedDiscount,
-          finalAmount,
-        };
-      } catch (error) {
-        this.logger.error('Failed to create payment link:', error);
-        if (
-          error instanceof BadRequestException ||
-          error instanceof NotFoundException
-        ) {
-          throw error;
-        }
-        throw new InternalServerErrorException('Failed to create payment link');
-      }
-    });
-  }
 
   /**
    * Create payment intent for booking (Manual integration - keep for flexibility)
@@ -832,45 +589,16 @@ export class StripeService {
       }
 
       // Get event with pessimistic locking to prevent race conditions
-      const event = await tx.events.findUnique({
+      const event = await tx.event.findUnique({
         where: { id: data.eventId },
         include: {
-          experience: {
+          seller: {
             select: {
               id: true,
               name: true,
-              userId: true,
-              coverImage: true,
-              status: true,
-              user: {
-                select: {
-                  id: true,
-                  name: true,
-                  email: true,
-                  stripeAccountId: true,
-                  stripeOnboardingComplete: true,
-                },
-              },
-            },
-          },
-          bookings: {
-            where: {
-              status: { in: ['PENDING', 'CONFIRMED'] },
-              deletedAt: null,
-            },
-            select: {
-              id: true,
-              guestCount: true,
-            },
-          },
-          _count: {
-            select: {
-              bookings: {
-                where: {
-                  status: { in: ['PENDING', 'CONFIRMED'] },
-                  deletedAt: null,
-                },
-              },
+              email: true,
+              stripeAccountId: true,
+              stripeOnboardingComplete: true,
             },
           },
         },
@@ -878,65 +606,10 @@ export class StripeService {
 
       if (!event) throw new NotFoundException('This event does not exist');
 
-      // Comprehensive validation
-      if (data.guestCount > event.maxGuest) {
-        throw new ForbiddenException(
-          `This event can only accommodate ${event.maxGuest} guests.`,
-        );
-      }
-
-      if (event.experience.userId === userId)
-        throw new ForbiddenException('You cannot book your own experience');
-
-      if (event.experience.status !== 'PUBLISHED')
-        throw new ForbiddenException('This experience is not available');
-
-      if (event.status !== 'SCHEDULE')
-        throw new ForbiddenException('This event is not available');
-
-      // Check if event is still available (time-based validation)
-      // const now = new Date();
-      // if (event.availableEndAt && now > event.availableEndAt) {
-      //   throw new ForbiddenException('Booking period has ended');
-      // }
-      //TODO: Add availableAt validation
-      // if (event.availableAt && now < event.availableAt) {
-      //   throw new ForbiddenException('Booking not yet available');
-      // }
-
-      // Check for existing booking with atomic operation
-      const alreadyBooked = await tx.booking.findFirst({
-        where: {
-          eventId: data.eventId,
-          userId: userId,
-          status: { in: ['PENDING', 'CONFIRMED'] },
-          deletedAt: null,
-        },
-      });
-
-      if (alreadyBooked?.status === 'CONFIRMED') {
-        throw new ForbiddenException('You have already booked this experience');
-      }
-
-      // Calculate current bookings with atomic count
-      const currentBookedGuests = event.bookings.reduce(
-        (sum, booking) => sum + booking.guestCount,
-        0,
-      );
-
-      const totalAfterBooking = currentBookedGuests + data.guestCount;
-
-      if (totalAfterBooking > event.maxparticipants) {
-        const availableSlots = event.maxparticipants - currentBookedGuests;
-        throw new ForbiddenException(
-          `Only ${availableSlots} slots available. You requested ${data.guestCount} guests.`,
-        );
-      }
-
       // Calculate pricing with proper validation
-      const basePrice = event.price.toNumber();
-      const discount = event.discount.toNumber();
-      const discountType = event.discountType;
+      const basePrice = new Decimal(0).toNumber();
+      const discount = new Decimal(0).toNumber();
+      const discountType = 'PERCENTAGE';
 
       if (basePrice <= 0) {
         throw new BadRequestException('Invalid event pricing');
@@ -949,42 +622,21 @@ export class StripeService {
       const tax = 0; // Configure based on business rules
       const total = subtotal - discountAmount + vat + tax;
 
-      const host = event.experience.user;
-      if (!host.stripeAccountId || !host.stripeOnboardingComplete) {
+      const seller = event.seller;
+      if (!seller.stripeAccountId || !seller.stripeOnboardingComplete) {
         throw new BadRequestException(
-          'Host has not been onboarded to the marketplace',
+          'Seller has not been onboarded to the marketplace',
         );
       }
 
       // Calculate platform fee and host amount
       const platformFeePercentage = this.platformFeePercentage;
       const platformFee = Math.round(total * (platformFeePercentage / 100));
-      const hostAmount = total - platformFee;
+      const sellerAmount = total - platformFee;
 
       // Apply coupon discount if provided
       let finalAmount = total;
       let appliedDiscount = 0;
-
-      if (data.couponId) {
-        const coupon = await tx.coupon.findUnique({
-          where: { id: data.couponId },
-        });
-
-        if (
-          coupon &&
-          coupon.status === 'ACTIVE' &&
-          coupon.validTo > new Date()
-        ) {
-          if (coupon.discountPercent) {
-            appliedDiscount = Math.round(
-              total * (Number(coupon.discountPercent) / 100),
-            );
-          } else if (coupon.value) {
-            appliedDiscount = Math.min(Number(coupon.value), total);
-          }
-          finalAmount = total - appliedDiscount;
-        }
-      }
 
       // Prepare payment intent configuration
       const paymentIntentConfig: any = {
@@ -994,18 +646,17 @@ export class StripeService {
         capture_method: 'automatic', // Manual capture when confirmed
         application_fee_amount: Math.round(platformFee * 100), // Platform fee in cents
         transfer_data: {
-          destination: host.stripeAccountId as string, // Host's Stripe Connect account ID
+          destination: seller.stripeAccountId as string, // Seller's Stripe Connect account ID
         },
         automatic_payment_methods: {
           enabled: true,
         },
         setup_future_usage: 'off_session',
         metadata: {
-          experienceId: event.experienceId,
           eventId: data.eventId || '',
-          hostId: host.id,
+          sellerId: seller.id,
           platformFee: platformFee.toString(),
-          hostAmount: hostAmount.toString(),
+          sellerAmount: sellerAmount.toString(),
           couponId: data.couponId || '',
           appliedDiscount: appliedDiscount.toString(),
           paymentType: 'booking_payment',
@@ -1039,7 +690,7 @@ export class StripeService {
       const ephemeralKey = await this.stripe.ephemeralKeys.create(
         { customer: customerId },
         {
-          stripeAccount: host.stripeAccountId as string,
+          stripeAccount: seller.stripeAccountId as string,
           apiVersion: '2024-04-10',
         },
       );
@@ -1047,15 +698,14 @@ export class StripeService {
       const booking = await tx.booking.create({
         data: {
           userId: userId,
-          eventId: data.eventId,
-          experienceId: event.experienceId,
+          seatId: data.eventId,
           guestCount: data.guestCount,
           price: new Decimal(basePrice),
           discount: new Decimal(discountAmount + appliedDiscount),
           vat: new Decimal(vat),
           tax: new Decimal(tax),
           total: new Decimal(total),
-          startDate: event.date,
+          startDate: event.startTime,
           paymentMethod: 'STRIPE',
           status: 'PENDING',
           transactions: {
@@ -1065,22 +715,20 @@ export class StripeService {
               currency: Currency.USD,
               provider: PaymentProvider.STRIPE_CONNECT,
               payerId: userId,
-              payeeId: host.id,
-              experienceId: event.experienceId,
-              couponId: data.couponId,
+              payeeId: seller.id,
               stripePaymentIntent: paymentIntent.id,
-              stripeAccountId: host.stripeAccountId,
+              stripeAccountId: seller.stripeAccountId,
               externalTxnId: paymentIntent.id,
               platformFee,
-              hostAmount,
-              description: `Payment for ${event.experience.name}`,
+              sellerAmount,
+              description: `Payment for ${event.title} by ${user.name}`,
             },
           },
         },
       });
 
       this.logger.log(
-        `Created PaymentIntent ${paymentIntent.id} for experience ${event.experienceId}`,
+        `Created PaymentIntent ${paymentIntent.id} for experience ${event.id} and user ${userId}`,
       );
 
       return {
@@ -1090,7 +738,7 @@ export class StripeService {
         customerId,
         booking,
         platformFee,
-        hostAmount,
+        sellerAmount,
         appliedDiscount,
         finalAmount,
       };
@@ -1220,7 +868,7 @@ export class StripeService {
 
         // Create transaction record
         const transaction = await this.transactionService.createTransaction({
-          type: TransactionType.HOST_PAYOUT,
+          type: TransactionType.SELLER_PAYOUT,
           amount: data.amount,
           currency: data.currency || Currency.USD,
           provider: PaymentProvider.STRIPE_CONNECT,
@@ -1656,11 +1304,11 @@ export class StripeService {
   /**
    * Get host's available balance for withdrawal
    */
-  async getHostBalance(hostId: string) {
+  async getHostBalance(sellerId: string) {
     return this.prisma.$transaction(async (tx) => {
       // Verify host exists and is onboarded
-      const host = await tx.user.findUnique({
-        where: { id: hostId },
+      const seller = await tx.user.findUnique({
+        where: { id: sellerId },
         select: {
           id: true,
           name: true,
@@ -1669,20 +1317,20 @@ export class StripeService {
         },
       });
 
-      if (!host) {
-        throw new NotFoundException('Host not found');
+      if (!seller) {
+        throw new NotFoundException('Seller not found');
       }
 
-      if (!host.stripeAccountId || !host.stripeOnboardingComplete) {
+      if (!seller.stripeAccountId || !seller.stripeOnboardingComplete) {
         throw new BadRequestException(
-          'Host has not completed Stripe onboarding',
+          'Seller has not completed Stripe onboarding',
         );
       }
 
-      // Get all successful booking payments where this user is the host
+      // Get all successful booking payments where this user is the seller
       const successfulPayments = await tx.transaction.findMany({
         where: {
-          payeeId: hostId,
+          payeeId: sellerId,
           type: TransactionType.BOOKING_PAYMENT,
           status: TransactionStatus.SUCCESS,
         },
@@ -1690,18 +1338,18 @@ export class StripeService {
           id: true,
           amount: true,
           platformFee: true,
-          hostAmount: true,
+          sellerAmount: true,
           createdAt: true,
           description: true,
-          experienceId: true,
+          eventId: true,
         },
       });
 
       // Get all payouts already made to this host
       const completedPayouts = await tx.transaction.findMany({
         where: {
-          payeeId: hostId,
-          type: TransactionType.HOST_PAYOUT,
+          payeeId: sellerId,
+          type: TransactionType.SELLER_PAYOUT,
           status: TransactionStatus.SUCCESS,
         },
         select: {
@@ -1715,7 +1363,7 @@ export class StripeService {
       // Get pending withdrawal requests
       const pendingWithdrawals = await tx.withdrawalRequest.findMany({
         where: {
-          hostId,
+          sellerId,
           status: 'PENDING',
         },
         select: {
@@ -1728,7 +1376,7 @@ export class StripeService {
 
       // Calculate totals
       const totalEarnings = successfulPayments.reduce(
-        (sum, payment) => sum + Number(payment.hostAmount || 0),
+        (sum, payment) => sum + Number(payment.sellerAmount || 0),
         0,
       );
       const totalPaidOut = completedPayouts.reduce(
@@ -1744,8 +1392,8 @@ export class StripeService {
         totalEarnings - totalPaidOut - totalPendingWithdrawals;
 
       return {
-        hostId,
-        hostName: host.name,
+        sellerId,
+        sellerName: seller.name,
         totalEarnings,
         totalPaidOut,
         totalPendingWithdrawals,
@@ -1762,14 +1410,14 @@ export class StripeService {
    * Create withdrawal request for host
    */
   async createWithdrawalRequest(
-    hostId: string,
+    sellerId: string,
     amount: number,
     currency?: string,
     description?: string,
   ) {
     return this.prisma.$transaction(async (tx) => {
-      // Get host balance to validate request
-      const balance = await this.getHostBalance(hostId);
+      // Get seller balance to validate request
+      const balance = await this.getHostBalance(sellerId);
 
       if (amount > balance.availableBalance) {
         throw new BadRequestException(
@@ -1786,7 +1434,7 @@ export class StripeService {
       // Check for existing pending withdrawal requests
       const existingPendingRequest = await tx.withdrawalRequest.findFirst({
         where: {
-          hostId,
+          sellerId: sellerId,
           status: 'PENDING',
         },
       });
@@ -1800,7 +1448,7 @@ export class StripeService {
       // Create withdrawal request
       const withdrawalRequest = await tx.withdrawalRequest.create({
         data: {
-          hostId,
+          sellerId,
           amount: new Decimal(amount),
           currency: (currency as Currency) || Currency.USD,
           description: description || `Withdrawal request for ${amount}`,
@@ -1810,7 +1458,7 @@ export class StripeService {
       });
 
       this.logger.log(
-        `Created withdrawal request ${withdrawalRequest.id} for host ${hostId}`,
+        `Created withdrawal request ${withdrawalRequest.id} for seller ${sellerId}`,
       );
 
       return withdrawalRequest;
@@ -1820,9 +1468,9 @@ export class StripeService {
   /**
    * Get host's withdrawal request history
    */
-  async getHostWithdrawalRequests(hostId: string) {
+  async getHostWithdrawalRequests(sellerId: string) {
     const requests = await this.prisma.withdrawalRequest.findMany({
-      where: { hostId },
+      where: { sellerId },
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
@@ -1862,7 +1510,7 @@ export class StripeService {
         take: limit,
         orderBy: { createdAt: 'desc' },
         include: {
-          host: {
+          seller: {
             select: {
               id: true,
               name: true,
@@ -1899,7 +1547,7 @@ export class StripeService {
       const withdrawalRequest = await tx.withdrawalRequest.findUnique({
         where: { id: withdrawalRequestId },
         include: {
-          host: {
+          seller: {
             select: {
               id: true,
               name: true,
@@ -1920,8 +1568,8 @@ export class StripeService {
         );
       }
 
-      const host = withdrawalRequest.host;
-      if (!host.stripeAccountId || !host.stripeOnboardingComplete) {
+      const seller = withdrawalRequest.seller;
+      if (!seller.stripeAccountId || !seller.stripeOnboardingComplete) {
         throw new BadRequestException(
           'Host has not completed Stripe onboarding',
         );
@@ -1934,23 +1582,23 @@ export class StripeService {
         transfer = await this.stripe.transfers.create({
           amount: Math.round(Number(withdrawalRequest.amount) * 100), // Convert to cents
           currency: withdrawalRequest.currency.toLowerCase(),
-          destination: host.stripeAccountId,
+          destination: seller.stripeAccountId,
           description: `Withdrawal: ${withdrawalRequest.description}`,
           metadata: {
             withdrawalRequestId: withdrawalRequest.id,
-            hostId: host.id,
+            sellerId: seller.id,
           },
         });
 
         // Create transaction record for the payout
         await this.transactionService.createTransaction({
-          type: TransactionType.HOST_PAYOUT,
+          type: TransactionType.SELLER_PAYOUT,
           amount: Number(withdrawalRequest.amount),
           currency: withdrawalRequest.currency as Currency,
           provider: PaymentProvider.STRIPE_CONNECT,
-          payeeId: host.id,
+          payeeId: seller.id,
           stripeTransferId: transfer.id,
-          stripeAccountId: host.stripeAccountId,
+          stripeAccountId: seller.stripeAccountId,
           description: `Approved withdrawal: ${withdrawalRequest.description}`,
           notes: adminNotes,
         });
@@ -2014,9 +1662,7 @@ export class StripeService {
           ...dateFilter,
         },
         include: {
-          experience: {
-            select: { name: true },
-          },
+          event: { select: { id: true, title: true } },
         },
         orderBy: { createdAt: 'desc' },
       });
@@ -2025,7 +1671,7 @@ export class StripeService {
       const payouts = await tx.transaction.findMany({
         where: {
           payeeId: hostId,
-          type: TransactionType.HOST_PAYOUT,
+          type: TransactionType.SELLER_PAYOUT,
           status: TransactionStatus.SUCCESS,
           ...dateFilter,
         },
@@ -2042,7 +1688,7 @@ export class StripeService {
         0,
       );
       const totalNetEarnings = earnings.reduce(
-        (sum, earning) => sum + Number(earning.hostAmount || 0),
+        (sum, earning) => sum + Number(earning.sellerAmount || 0),
         0,
       );
       const totalPayouts = payouts.reduce(
@@ -2064,7 +1710,7 @@ export class StripeService {
         }
         acc[month].grossEarnings += Number(earning.amount);
         acc[month].platformFees += Number(earning.platformFee || 0);
-        acc[month].netEarnings += Number(earning.hostAmount || 0);
+        acc[month].netEarnings += Number(earning.sellerAmount || 0);
         acc[month].bookingCount += 1;
         return acc;
       }, {});

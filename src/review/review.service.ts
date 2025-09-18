@@ -20,19 +20,25 @@ export class ReviewService {
       select: {
         id: true,
         userId: true,
-        event: { select: { id: true } },
-        experience: { select: { userId: true, id: true } },
+        seat: {
+          select: {
+            event: true,
+          },
+        },
       },
     });
 
-    if (!booking || !booking.event) {
+    if (!booking || !booking.seat?.event) {
       throw new NotAcceptableException("You can't provide review");
     }
 
     //check already reviewed or not by this user for this experience
     const alreadyReviewed = await this.prisma.review.findFirst({
       where: {
-        AND: [{ eventId: booking.event.id }, { reviewerId: booking.userId }],
+        AND: [
+          { eventId: booking.seat.event.id },
+          { reviewerId: booking.userId },
+        ],
       },
     });
 
@@ -47,17 +53,16 @@ export class ReviewService {
         title: data.title,
         comment: data.comment,
         rating: data.rating,
-        eventId: booking.event.id,
-        experienceId: booking.experience.id,
+        eventId: booking.seat.event.id,
         reviewerId: booking.userId,
-        revieweeId: booking.experience.userId,
+        revieweeId: booking.seat.event.sellerId,
       },
     });
 
     //Calculate Average Rating then update experience
     const reviews = await this.prisma.review.findMany({
       where: {
-        experienceId: booking.experience.id,
+        eventId: booking.seat.event.id,
       },
       select: {
         rating: true,
@@ -67,10 +72,12 @@ export class ReviewService {
     const averageRating =
       reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length;
 
-    await this.prisma.experience.update({
-      where: { id: booking.experience.id },
-      data: { averageRating },
-    });
+    //TODO: update event average rating
+
+    // await this.prisma.event.update({
+    //   where: { id: booking.seat.event.id },
+    //   data: { averageRating },
+    // });
 
     return {
       status: true,
@@ -172,9 +179,6 @@ export class ReviewService {
           reviewer: {
             select: { id: true, name: true, avatar: true },
           },
-          experience: {
-            select: { id: true, name: true },
-          },
         },
       }),
       this.prisma.review.count({ where }),
@@ -252,9 +256,6 @@ export class ReviewService {
           reviewer: {
             select: { id: true, name: true, avatar: true },
           },
-          experience: {
-            select: { id: true, name: true },
-          },
         },
       }),
       this.prisma.review.count({ where }),
@@ -330,9 +331,6 @@ export class ReviewService {
         include: {
           reviewer: {
             select: { id: true, name: true, avatar: true },
-          },
-          experience: {
-            select: { id: true, name: true },
           },
         },
       }),
@@ -410,9 +408,6 @@ export class ReviewService {
           reviewer: {
             select: { id: true, name: true, avatar: true },
           },
-          experience: {
-            select: { id: true, name: true },
-          },
         },
       }),
       this.prisma.review.count({ where }),
@@ -482,9 +477,6 @@ export class ReviewService {
         include: {
           reviewer: {
             select: { id: true, name: true, avatar: true },
-          },
-          experience: {
-            select: { id: true, name: true },
           },
         },
       }),

@@ -1,19 +1,7 @@
-import { z } from 'zod';
+import { HelpType } from '@prisma/client';
+import { nativeEnum, z } from 'zod';
 
-const HelpType = z.enum([
-  'BOOKING',
-  'PAYMENT',
-  'EVENT',
-  'EXPERIENCE',
-  'ACCOUNT',
-  'COUPON',
-  'REVIEW',
-  'MESSAGE',
-  'NOTIFICATION',
-  'SYSTEM',
-  'OTHER',
-  'BECOMEHOST',
-]);
+
 
 const HelpFaqStatus = z.enum(['DRAFT', 'REVIEW', 'PUBLISHED', 'ARCHIVED']);
 
@@ -32,7 +20,7 @@ export const helpQuerySchema = z.object({
   search: z.string().optional(),
 
   // Filters
-  type: HelpType.optional(),
+  type: nativeEnum(HelpType).optional(),
   status: HelpFaqStatus.optional(),
   blogId: z.string().optional(),
 

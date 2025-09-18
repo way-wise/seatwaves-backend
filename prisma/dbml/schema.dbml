@@ -25,7 +25,7 @@ Table users {
   status UserStatus [not null, default: 'ACTIVE']
   isEmailVerified Boolean [not null, default: false]
   isTwoFactorEnabled Boolean [not null, default: false]
-  hostVerified Boolean [not null, default: false]
+  isSellerVerified Boolean [not null, default: false]
   blockedUntil DateTime
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [not null]
@@ -37,7 +37,7 @@ Table users {
   lastLoginAt DateTime
   loginHistory login_history [not null]
   accounts accounts [not null]
-  experience experiences [not null]
+  events events [not null]
   bookings bookings [not null]
   reviewsGiven reviews [not null]
   reviewReceived reviews [not null]
@@ -46,8 +46,7 @@ Table users {
   messageRoomsSent message_rooms [not null]
   messageRoomsReceived message_rooms [not null]
   notifications notifications [not null]
-  wishlistItems wishlist_items [not null]
-  hostVerification host_verifications [not null]
+  sellerVerification seller_verifications [not null]
   activityLogs activity_log [not null]
   businessInfo business_info
   notificationSettings notifications_settings
@@ -55,19 +54,16 @@ Table users {
   transactionsPaid transactions [not null]
   transactionsReceived transactions [not null]
   transactionsApproved transactions [not null]
-  coupons coupons [not null]
-  customerRedemptions coupon_redemptions [not null]
-  hostRedemptions coupon_redemptions [not null]
   blogs blog [not null]
   interests user_interest [not null]
   withdrawalRequests withdrawal_requests [not null]
   withdrawalApprovals withdrawal_requests [not null]
-  reels reels [not null]
   feedBacks feedback [not null]
   rewardPoints RewardPoints [not null]
   redemptions Redemption [not null]
   userLoyalty UserLoyalty
   tierHistories TierHistory [not null]
+  WishlistItem wishlist_items [not null]
 }
 
 Table user_otp {
@@ -153,25 +149,20 @@ Table login_history {
   user users [not null]
 }
 
-Table tags {
-  id String [pk]
-  name String [unique, not null]
-  slug String [unique, not null]
-  blogs blog [not null]
-  experiences experiences [not null]
-}
-
 Table categorys {
   id String [pk]
   name String [unique, not null]
   slug String [unique, not null]
   icon String
-  experiences experiences [not null]
+  parentId String
+  parent categorys
+  children categorys [not null]
   blogs blog [not null]
   interests user_interest [not null]
   status CategoryStatus [not null, default: 'ACTIVE']
+  events events [not null]
   createdAt DateTime [default: `now()`, not null]
-  updatedAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
 }
 
 Table user_interest {
@@ -186,139 +177,44 @@ Table user_interest {
   }
 }
 
-Table experiences {
-  id String [pk]
-  user users [not null]
-  userId String [not null]
-  name String [not null]
-  shortDesc String [not null, default: '']
-  slug String [unique, not null]
-  status ExperienceStatus [not null, default: 'DRAFT']
-  address String
-  city String
-  state String
-  country String
-  zipCode String
-  latitude Float
-  longitude Float
-  scheduleType ScheduleType [not null, default: 'ONTIME']
-  cancelPolicy String
-  latePolicy String
-  reschedulePolicy String
-  refundable Boolean [not null, default: false]
-  coverImage String
-  cancellationFee Decimal
-  detailsDesc String
-  includes String[] [not null]
-  notes String
-  guestRequirements String
-  agreement String
-  tags tags [not null]
-  averageRating Float [default: 0]
-  reviewCount Int [default: 0]
-  reviews reviews [not null]
-  category categorys [not null]
-  categoryId String [not null]
-  badges experience_badges [not null]
-  amenities experience_amenities [not null]
-  media images [not null]
-  wishlistItems wishlist_items [not null]
-  translations translations [not null]
-  createdAt DateTime [default: `now()`, not null]
-  updatedAt DateTime [not null]
-  deletedAt DateTime
-  events events [not null]
-  activities Json
-  timeslots Json
-  startDate DateTime
-  endDate DateTime
-  startTime String
-  duration Float
-  endTime String
-  isFeatured Boolean [not null, default: false]
-  isActive Boolean [not null, default: true]
-  price Decimal [not null, default: 0]
-  discount Decimal [not null, default: 0]
-  discountType DiscountType [not null, default: 'PERCENTAGE']
-  openWindowDays Int
-  bookingCount Int [not null, default: 0]
-  maxGuest Int
-  maxPerSlot Int
-  maxparticipants Int
-  bookings bookings [not null]
-  rooms message_rooms [not null]
-  transactions transactions [not null]
-  coupons coupons [not null]
-  redemptions coupon_redemptions [not null]
-  reels reels [not null]
-  recurrenceRules RecurrenceRule
-  featured featured_experiences [not null]
-}
-
-Table RecurrenceRule {
-  id String [pk]
-  experienceId String [unique, not null]
-  experience experiences [not null]
-  frequency Frequency [not null, default: 'DAILY']
-  interval Int [default: 1]
-  byday DayType[] [not null]
-  count Int
-  until DateTime
-  openWindowDays Int
-  nextRecurrence DateTime
-  createdAt DateTime [default: `now()`, not null]
-  updatedAt DateTime [not null]
-}
-
 Table events {
   id String [pk]
-  experienceId String [not null]
-  title String
-  date DateTime [not null]
-  startTime String
-  duration Float
-  endTime String
-  maxGuest Int [not null]
-  maxperSlot Int
-  discount Decimal [not null, default: 0]
-  discountType DiscountType [not null, default: 'PERCENTAGE']
-  notes String
-  price Decimal [not null, default: 0]
-  status EventStatus [not null, default: 'SCHEDULE']
-  activities Json
-  timeslots Json
-  isAvailable Boolean [not null, default: true]
-  maxparticipants Int [not null, default: 0]
-  availableTickets Int [not null, default: 0]
-  bookings bookings [not null]
-  reviews reviews [not null]
-  experience experiences [not null]
-  createdAt DateTime [default: `now()`, not null]
-  updatedAt DateTime [default: `now()`, not null]
-
-  indexes {
-    (experienceId, date, startTime) [unique]
-  }
-}
-
-Table badges {
-  id String [pk]
-  name String [unique, not null]
-  icon String
-  experiences experience_badges [not null]
+  eventId String [unique, not null]
+  title String [not null]
+  description String
+  venue String
+  startTime DateTime [not null]
+  endTime DateTime [not null]
+  duration Int
+  metaData Json
+  status EventStatus [not null, default: 'ONGOING']
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [not null]
+  sellerId String [not null]
+  seller users [not null]
+  seats seats [not null]
+  reviews reviews [not null]
+  rooms message_rooms [not null]
+  transactions transactions [not null]
+  categoryId String [not null]
+  category categorys [not null]
+  WishlistItem wishlist_items [not null]
 }
 
-Table experience_badges {
+Table seats {
   id String [pk]
-  experience experiences [not null]
-  experienceId String [not null]
-  badge badges [not null]
-  badgeId String [not null]
+  seatId String [not null]
+  eventId String [not null]
+  row String
+  number Int
+  isBooked Boolean [not null, default: false]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  event events [not null]
+  bookings bookings [not null]
 
   indexes {
-    (experienceId, badgeId) [unique]
+    (seatId, eventId) [unique]
   }
 }
 
@@ -326,10 +222,8 @@ Table bookings {
   id String [pk]
   user users [not null]
   userId String [not null]
-  eventId String
-  event events
-  experienceId String [not null]
-  experience experiences [not null]
+  seatId String [not null]
+  seat seats [not null]
   startDate DateTime [not null]
   guestCount Int [not null, default: 1]
   price Decimal [not null]
@@ -338,8 +232,7 @@ Table bookings {
   tax Decimal [not null]
   total Decimal [not null]
   status BookingStatus [not null, default: 'PENDING']
-  paymentMethod PaymentMethod [not null]
-  couponId String
+  paymentMethod PaymentProvider [not null, default: 'STRIPE']
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [default: `now()`, not null]
   deletedAt DateTime
@@ -360,17 +253,14 @@ Table transactions {
   payeeId String
   booking bookings
   bookingId String
-  coupon coupons
-  couponId String
-  experience experiences
-  experienceId String
-  couponPurchases coupons [not null]
+  event events
+  eventId String
   stripePaymentIntent String
   stripeTransferId String
   stripeAccountId String
   stripeChargeId String
   platformFee Decimal
-  hostAmount Decimal
+  sellerAmount Decimal
   externalTxnId String
   parentTransaction transactions
   parentTransactionId String
@@ -390,10 +280,8 @@ Table transactions {
 
 Table reviews {
   id String [pk]
-  eventId String
-  event events
-  experienceId String [not null]
-  experience experiences [not null]
+  eventId String [not null]
+  event events [not null]
   reviewer users [not null]
   reviewerId String [not null]
   reviewee users [not null]
@@ -407,107 +295,14 @@ Table reviews {
   repliedAt DateTime
 }
 
-Table coupons {
-  id String [pk]
-  code String [unique, not null]
-  qrCode String [unique]
-  user users [not null]
-  userId String [not null]
-  experience experiences [not null]
-  experienceId String [not null]
-  type CouponType [not null]
-  title String [not null]
-  description String [not null]
-  value Float [not null]
-  currency String [not null, default: 'USD']
-  discountPercent Int
-  maxUses Int [not null, default: 1]
-  usedCount Int [not null, default: 0]
-  status CouponStatus [not null, default: 'ACTIVE']
-  validFrom DateTime [not null]
-  validTo DateTime [not null]
-  isActive Boolean [not null, default: true]
-  createdAt DateTime [default: `now()`, not null]
-  updatedAt DateTime [not null]
-  purchaseTransaction transactions
-  purchaseTransactionId String
-  redemptions coupon_redemptions [not null]
-  transactions transactions [not null]
-}
-
-Table coupon_redemptions {
-  id String [pk]
-  coupon coupons [not null]
-  couponId String [not null]
-  customer users [not null]
-  customerId String [not null]
-  experience experiences [not null]
-  experienceId String [not null]
-  host users [not null]
-  hostId String [not null]
-  redeemedAt DateTime [default: `now()`, not null]
-  amountUsed Float
-  notes String
-  ipAddress String
-  location String
-}
-
-Table amenities {
-  id String [pk]
-  name String [not null]
-  slug String [unique, not null]
-  icon String
-  description String
-  createdAt DateTime [default: `now()`, not null]
-  updatedAt DateTime [not null]
-  experiences experience_amenities [not null]
-}
-
-Table experience_amenities {
-  id String [pk]
-  experience experiences [not null]
-  experienceId String [not null]
-  amenity amenities [not null]
-  amenityId String [not null]
-
-  indexes {
-    (experienceId, amenityId) [unique]
-  }
-}
-
-Table images {
-  id String [pk]
-  experience experiences [not null]
-  experienceId String [not null]
-  status MediaStatus [not null, default: 'ACTIVE']
-  title String
-  description String
-  url String [not null]
-  type MediaType [not null]
-  uploadedAt DateTime [default: `now()`, not null]
-}
-
-Table translations {
-  id String [pk]
-  experience experiences [not null]
-  experienceId String [not null]
-  languageCode LanguageCode [not null, default: 'en']
-  title String [not null]
-  description String [not null]
-
-  indexes {
-    (experienceId, languageCode) [unique]
-  }
-}
-
 Table message_rooms {
   id String [pk]
   sender users [not null]
   senderId String [not null]
   receiver users [not null]
   receiverId String [not null]
-  experienceId String [not null]
-  experience experiences [not null]
+  eventId String [not null]
+  event events [not null]
   bookingId String
   booking bookings
   createdAt DateTime [default: `now()`, not null]
@@ -515,7 +310,7 @@ Table message_rooms {
   messages messages [not null]
 
   indexes {
-    (senderId, receiverId, experienceId) [unique]
+    (senderId, receiverId, eventId) [unique]
   }
 }
 
@@ -558,30 +353,10 @@ Table activity_log {
   createdAt DateTime [default: `now()`, not null]
 }
 
-Table featured_experiences {
+Table seller_verifications {
   id String [pk]
-  experience experiences [not null]
-  experienceId String [unique, not null]
-  createdAt DateTime [default: `now()`, not null]
-}
-
-Table wishlist_items {
-  id String [pk]
-  userId String [not null]
-  user users [not null]
-  experience experiences [not null]
-  experienceId String [not null]
-  createdAt DateTime [default: `now()`, not null]
-
-  indexes {
-    (userId, experienceId) [unique]
-  }
-}
-
-Table host_verifications {
-  id String [pk]
-  user users [not null]
-  userId String [not null]
+  seller users [not null]
+  sellerId String [not null]
   idDocument String [not null]
   verified Boolean [not null]
   verifiedAt DateTime
@@ -589,8 +364,8 @@ Table host_verifications {
 
 Table business_info {
   id String [pk]
-  userId String [unique, not null]
-  user users [not null]
+  sellerId String [unique, not null]
+  seller users [not null]
   status BusinessInfoStatus [not null, default: 'PENDING']
   name String
   type String
@@ -626,8 +401,7 @@ Table notifications_settings {
   payoutintiated Boolean [not null, default: true]
   payoutcompleted Boolean [not null, default: true]
   newreview Boolean [not null, default: true]
-  experienceupdated Boolean [not null, default: true]
-  tipsforhost Boolean [not null, default: true]
+  eventupdate Boolean [not null, default: true]
   promotionaloffer Boolean [not null, default: true]
   loginnewdevice Boolean [not null, default: true]
   policychange Boolean [not null, default: true]
@@ -644,12 +418,12 @@ Table blog {
   excerpt String
   coverImage String
   status BlogStatus [not null, default: 'DRAFT']
+  tags String[] [not null]
   publishedAt DateTime
   isFeatured Boolean [not null, default: false]
   isDeleted Boolean [not null, default: false]
   authorId String [not null]
   author users [not null]
-  tags tags [not null]
   categories categorys [not null]
   seo SeoMetadata
   seoId String [unique]
@@ -660,8 +434,8 @@ Table blog {
 
 Table withdrawal_requests {
   id String [pk]
-  hostId String [not null]
-  host users [not null]
+  sellerId String [not null]
+  seller users [not null]
   amount Decimal [not null]
   currency Currency [not null, default: 'USD']
   description String
@@ -688,29 +462,6 @@ Table helpfaqs {
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [not null]
   deletedAt DateTime
-  becomehost becomehost [not null]
-}
-
-Table reels {
-  id String [pk]
-  platform ReelPlatform [not null]
-  videoId String [not null]
-  title String
-  description String
-  thumbnail String
-  duration Int
-  isActive Boolean [not null, default: true]
-  createdBy users [not null]
-  createdById String [not null]
-  experienceId String [not null]
-  experience experiences [not null]
-  createdAt DateTime [default: `now()`, not null]
-  updatedAt DateTime [not null]
-  deletedAt DateTime
-
-  indexes {
-    (platform, videoId) [unique]
-  }
 }
 
 Table feedback {
@@ -719,7 +470,7 @@ Table feedback {
   name String [not null]
   message String [not null]
   userId String
-  platform PlatformType [not null, default: 'WEOUT_WEB']
+  platform PlatformType [not null, default: 'WEB']
   user users
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [not null]
@@ -746,20 +497,6 @@ Table hero_section {
   updatedAt DateTime [not null]
 }
 
-Table becomehost {
-  id String [pk]
-  heading String [not null]
-  subHeading String
-  image String
-  content String
-  seo SeoMetadata [not null]
-  seoId String [unique, not null]
-  faq helpfaqs [not null]
-  cards card [not null]
-  createdAt DateTime [default: `now()`, not null]
-  updatedAt DateTime [not null]
-}
-
 Table banner {
   id String [pk]
   title String [not null]
@@ -778,8 +515,7 @@ Table card {
   isActive Boolean [not null, default: true]
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [not null]
-  becomehostId String
-  becomehost becomehost
+  type CardType [not null, default: 'FEATURED']
 }
 
 Table settings {
@@ -825,69 +561,10 @@ Table testimonial {
   updatedAt DateTime [not null]
 }
 
-Table privacyPolicy {
+Table dynamicPage {
   id String [pk]
   title String [not null]
-  description String
-  image String
-  content String
-  seo SeoMetadata [not null]
-  seoId String [unique, not null]
-  createdAt DateTime [default: `now()`, not null]
-  updatedAt DateTime [not null]
-}
-
-Table termsAndService {
-  id String [pk]
-  title String [not null]
-  description String
-  image String
-  content String
-  seo SeoMetadata [not null]
-  seoId String [unique, not null]
-  createdAt DateTime [default: `now()`, not null]
-  updatedAt DateTime [not null]
-}
-
-Table trustandSafety {
-  id String [pk]
-  title String [not null]
-  description String
-  image String
-  content String
-  seo SeoMetadata [not null]
-  seoId String [unique, not null]
-  createdAt DateTime [default: `now()`, not null]
-  updatedAt DateTime [not null]
-}
-
-Table communityGuidelines {
-  id String [pk]
-  title String [not null]
-  description String
-  image String
-  content String
-  seo SeoMetadata [not null]
-  seoId String [unique, not null]
-  createdAt DateTime [default: `now()`, not null]
-  updatedAt DateTime [not null]
-}
-
-Table cancellationPolicy {
-  id String [pk]
-  title String [not null]
-  description String
-  image String
-  content String
-  seo SeoMetadata [not null]
-  seoId String [unique, not null]
-  createdAt DateTime [default: `now()`, not null]
-  updatedAt DateTime [not null]
-}
-
-Table career {
-  id String [pk]
-  title String [not null]
+  slug String [unique, not null]
   description String
   image String
   content String
@@ -900,13 +577,7 @@ Table career {
 Table SeoMetadata {
   id String [pk]
   metaTitle String [not null]
-  becomehost becomehost
-  privacyPolicy privacyPolicy
-  termsAndService termsAndService
-  cancellationPolicy cancellationPolicy
-  career career
-  trustandSafety trustandSafety
-  communityGuidelines communityGuidelines
+  dynamicPage dynamicPage
   blog blog
   metaDescription String
   metaKeywords String
@@ -1010,24 +681,22 @@ Table ScheduledJobLog {
   payload Json
 }
 
-Table BlogTags {
-  blogsId String [ref: > blog.id]
-  tagsId String [ref: > tags.id]
-}
+Table wishlist_items {
+  id String [pk]
+  userId String [not null]
+  user users [not null]
+  eventId String [not null]
+  event events [not null]
+  createdAt DateTime [default: `now()`, not null]
 
-Table ExperienceTags {
-  experiencesId String [ref: > experiences.id]
-  tagsId String [ref: > tags.id]
+  indexes {
+    (userId, eventId) [unique]
+  }
 }
 
 Table BlogCategories {
   blogsId String [ref: > blog.id]
   categoriesId String [ref: > categorys.id]
-}
-
-Table BecomeHostToHelpFaq {
-  becomehostId String [ref: > becomehost.id]
-  faqId String [ref: > helpfaqs.id]
 }
 
 Enum AuthProvider {
@@ -1076,50 +745,16 @@ Enum CategoryStatus {
   INACTIVE
 }
 
-Enum Frequency {
-  DAILY
-  WEEKLY
-  MONTHLY
-  YEARLY
-}
-
-Enum DayType {
-  MO
-  TU
-  WE
-  TH
-  FR
-  SA
-  SU
-}
-
 Enum EventStatus {
-  SCHEDULE
+  ONGOING
   COMPLETED
   CANCELLED
-  RESCHEDULE
+  RESCHEDULED
 }
 
 Enum DiscountType {
   PERCENTAGE
   FIXED
-}
-
-Enum ScheduleType {
-  ONTIME
-  RECURRING
-  CUSTOM
-}
-
-Enum ExperienceStatus {
-  PUBLISHED
-  ANOUNCEMENT
-  DRAFT
-  PENDING
-  PAUSED
-  CANCELLED
-  REJECTED
-  DELETED
 }
 
 Enum payoutStatus {
@@ -1151,7 +786,7 @@ Enum PaymentProvider {
 Enum TransactionType {
   BOOKING_PAYMENT
   COUPON_PURCHASE
-  HOST_PAYOUT
+  SELLER_PAYOUT
   ADMIN_COMMISSION
   BOOKING_REFUND
   COUPON_REFUND
@@ -1166,53 +801,10 @@ Enum Currency {
   GBP
 }
 
-Enum PaymentMethod {
-  STRIPE
-  BKASH
-  NAGAD
-  ROCKET
-  MANUAL
-  CASH
-  WALLET
-}
-
 Enum ReviewStatus {
   PENDING
   APPROVED
   REJECTED
-}
-
-Enum CouponStatus {
-  ACTIVE
-  USED
-  EXPIRED
-  CANCELLED
-}
-
-Enum CouponType {
-  PREPAID_VALUE
-  SPECIFIC_DEAL
-  BONUS_INCENTIVE
-}
-
-Enum MediaStatus {
-  ACTIVE
-  INACTIVE
-}
-
-Enum MediaType {
-  IMAGE
-  VIDEO
-  AUDIO
-  FILE
-  REELS
-}
-
-Enum LanguageCode {
-  en
-  bn
-  es
-  fr
 }
 
 Enum MessageType {
@@ -1231,11 +823,9 @@ Enum NotificationType {
   WISHLIST
   COUPON
   EVENT
-  EXPERIENCE
   PAYMENT
   SYSTEM
   ALERT
-  EXPERIENCE_SUBMITTED
 }
 
 Enum BusinessInfoStatus {
@@ -1279,27 +869,22 @@ Enum HelpType {
   BOOKING
   PAYMENT
   EVENT
-  EXPERIENCE
   ACCOUNT
   COUPON
   REVIEW
   MESSAGE
   NOTIFICATION
   SYSTEM
-  BECOMEHOST
+  GENERAL
+  SELLER
+  USER
   OTHER
 }
 
-Enum ReelPlatform {
-  YOUTUBE
-  TIKTOK
-  FACEBOOK
-}
-
 Enum PlatformType {
-  WEOUT_WEB
-  WEOUT_ANDROID
-  WEOUT_IOS
+  WEB
+  ANDROID
+  IOS
 }
 
 Enum WebhookEventStatus {
@@ -1318,11 +903,12 @@ Enum ChangeFrequency {
   NEVER
 }
 
-Enum RewardPointStatus {
-  ACTIVE
-  REDEEMED
-  EXPIRED
-  ADJUSTMENT
+Enum CardType {
+  FEATURED
+  TRENDING
+  NEW
+  POPULAR
+  RECOMMENDED
 }
 
 Enum PointRuleAction {
@@ -1337,6 +923,13 @@ Enum PointRuleAction {
   SOCIAL_SHARE
 }
 
+Enum RewardPointStatus {
+  ACTIVE
+  REDEEMED
+  EXPIRED
+  ADJUSTED
+}
+
 Ref: accounts.userId > users.id [delete: Cascade]
 
 Ref: user_roles.userId > users.id [delete: Cascade]
@@ -1349,27 +942,21 @@ Ref: role_permissions.permissionId > permissions.id [delete: Cascade]
 
 Ref: login_history.userId > users.id [delete: Cascade]
 
+Ref: categorys.parentId - categorys.id [delete: Cascade]
+
 Ref: user_interest.userId > users.id
 
 Ref: user_interest.categoryId > categorys.id
 
-Ref: experiences.userId > users.id [delete: Cascade]
+Ref: events.sellerId > users.id [delete: Cascade]
 
-Ref: experiences.categoryId > categorys.id
+Ref: events.categoryId > categorys.id
 
-Ref: RecurrenceRule.experienceId - experiences.id [delete: Cascade]
-
-Ref: events.experienceId > experiences.id [delete: Cascade]
-
-Ref: experience_badges.experienceId > experiences.id
-
-Ref: experience_badges.badgeId > badges.id
+Ref: seats.eventId > events.id [delete: Cascade]
 
 Ref: bookings.userId > users.id [delete: Cascade]
 
-Ref: bookings.eventId > events.id [delete: Cascade]
-
-Ref: bookings.experienceId > experiences.id [delete: Cascade]
+Ref: bookings.seatId > seats.id [delete: Cascade]
 
 Ref: transactions.payerId > users.id
 
@@ -1377,9 +964,7 @@ Ref: transactions.payeeId > users.id
 
 Ref: transactions.bookingId > bookings.id
 
-Ref: transactions.couponId - coupons.id
-
-Ref: transactions.experienceId > experiences.id
+Ref: transactions.eventId > events.id
 
 Ref: transactions.parentTransactionId - transactions.id
 
@@ -1387,39 +972,15 @@ Ref: transactions.approvedById > users.id
 
 Ref: reviews.eventId > events.id [delete: Cascade]
 
-Ref: reviews.experienceId > experiences.id [delete: Cascade]
-
 Ref: reviews.reviewerId > users.id [delete: Cascade]
 
 Ref: reviews.revieweeId > users.id [delete: Cascade]
-
-Ref: coupons.userId > users.id [delete: Cascade]
-
-Ref: coupons.experienceId > experiences.id
-
-Ref: coupons.purchaseTransactionId - transactions.id
-
-Ref: coupon_redemptions.couponId > coupons.id
-
-Ref: coupon_redemptions.customerId > users.id
-
-Ref: coupon_redemptions.experienceId > experiences.id [delete: Cascade]
-
-Ref: coupon_redemptions.hostId > users.id
-
-Ref: experience_amenities.experienceId > experiences.id
-
-Ref: experience_amenities.amenityId > amenities.id
-
-Ref: images.experienceId > experiences.id
-
-Ref: translations.experienceId > experiences.id
 
 Ref: message_rooms.senderId > users.id
 
 Ref: message_rooms.receiverId > users.id
 
-Ref: message_rooms.experienceId > experiences.id
+Ref: message_rooms.eventId > events.id
 
 Ref: message_rooms.bookingId > bookings.id [delete: Cascade]
 
@@ -1433,15 +994,9 @@ Ref: notifications.userId > users.id
 
 Ref: activity_log.userId > users.id
 
-Ref: featured_experiences.experienceId > experiences.id
+Ref: seller_verifications.sellerId > users.id
 
-Ref: wishlist_items.userId > users.id
-
-Ref: wishlist_items.experienceId > experiences.id
-
-Ref: host_verifications.userId > users.id
-
-Ref: business_info.userId - users.id [delete: Cascade]
+Ref: business_info.sellerId - users.id [delete: Cascade]
 
 Ref: notifications_settings.userId - users.id [delete: Cascade]
 
@@ -1449,33 +1004,15 @@ Ref: blog.authorId > users.id
 
 Ref: blog.seoId - SeoMetadata.id
 
-Ref: withdrawal_requests.hostId > users.id
+Ref: withdrawal_requests.sellerId > users.id
 
 Ref: withdrawal_requests.approvedById > users.id
 
 Ref: helpfaqs.blogId > blog.id
 
-Ref: reels.createdById > users.id
-
-Ref: reels.experienceId > experiences.id
-
 Ref: feedback.userId > users.id [delete: Cascade]
 
-Ref: becomehost.seoId - SeoMetadata.id
-
-Ref: card.becomehostId > becomehost.id
-
-Ref: privacyPolicy.seoId - SeoMetadata.id
-
-Ref: termsAndService.seoId - SeoMetadata.id
-
-Ref: trustandSafety.seoId - SeoMetadata.id
-
-Ref: communityGuidelines.seoId - SeoMetadata.id
-
-Ref: cancellationPolicy.seoId - SeoMetadata.id
-
-Ref: career.seoId - SeoMetadata.id
+Ref: dynamicPage.seoId - SeoMetadata.id
 
 Ref: RewardPoints.userId > users.id
 
@@ -1488,3 +1025,7 @@ Ref: UserLoyalty.userId - users.id
 Ref: UserLoyalty.tierId > LoyaltyTier.id
 
 Ref: TierHistory.userId > users.id
+
+Ref: wishlist_items.userId > users.id
+
+Ref: wishlist_items.eventId > events.id

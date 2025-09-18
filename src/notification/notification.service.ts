@@ -114,7 +114,6 @@ export class NotificationService {
     const map: Record<NotificationType, boolean> = {
       BOOKING: settings.newBooking,
       REVIEW: settings.newreview,
-      EXPERIENCE: settings.experienceupdated,
       PAYMENT: settings.payoutcompleted || settings.payoutintiated,
       ALERT: settings.securityalert,
       SYSTEM: settings.policychange,
@@ -123,7 +122,6 @@ export class NotificationService {
       WISHLIST: settings.tipsforhost,
       EVENT: settings.bookingreminder,
       NOTIFY: true,
-      EXPERIENCE_SUBMITTED: settings.experienceupdated,
     };
     return map[type] ?? true;
   }

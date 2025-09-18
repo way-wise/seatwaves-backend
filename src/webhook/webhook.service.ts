@@ -283,8 +283,7 @@ export class WebhookService {
           transactionId: transaction.id,
           bookingId,
           hostId,
-          experienceId: transaction.booking?.experienceId,
-          eventId: transaction.booking?.eventId,
+          eventId: transaction.booking?.seatId,
         }),
         ipAddress: 'Webhook',
       });
@@ -312,7 +311,7 @@ export class WebhookService {
             { stripePaymentIntent: session.payment_intent as string },
           ],
         },
-        include: { booking: { include: { event: true } } },
+        include: { booking: { include: { seat: true } } },
       });
 
       if (!txn) {
@@ -356,37 +355,6 @@ export class WebhookService {
       const ticketsAlreadyReleased = Boolean(
         (txn.metadata as any)?.ticketsReleased,
       );
-
-      if (booking.eventId && !ticketsAlreadyReleased) {
-        const event = await tx.events.findUnique({
-          where: { id: booking.eventId },
-        });
-
-        if (event) {
-          const newAvailable = Math.min(
-            (event.availableTickets ?? 0) + (booking.guestCount || 0),
-            event.maxparticipants || (event.availableTickets ?? 0),
-          );
-
-          await tx.events.update({
-            where: { id: event.id },
-            data: { availableTickets: newAvailable },
-          });
-
-          await tx.transaction.update({
-            where: { id: txn.id },
-            data: {
-              metadata: {
-                ...((txn.metadata as object) || {}),
-                ticketsReleased: true,
-                ticketsReleasedReason: 'checkout.session.expired',
-                ticketsReleasedAt: new Date().toISOString(),
-                releasedCount: booking.guestCount,
-              },
-            },
-          });
-        }
-      }
 
       // Notify guest and host
       const guestId = txn.payerId;
@@ -453,38 +421,6 @@ export class WebhookService {
           where: { id: booking.id },
           data: { status: BookingStatus.CANCELLED, updatedAt: new Date() },
         });
-
-        // Release tickets idempotently
-        const ticketsAlreadyReleased = Boolean(
-          (txn.metadata as any)?.ticketsReleased,
-        );
-        if (booking.eventId && !ticketsAlreadyReleased) {
-          const event = await tx.events.findUnique({
-            where: { id: booking.eventId },
-          });
-          if (event) {
-            const newAvailable = Math.min(
-              (event.availableTickets ?? 0) + (booking.guestCount || 0),
-              event.maxparticipants || (event.availableTickets ?? 0),
-            );
-            await tx.events.update({
-              where: { id: event.id },
-              data: { availableTickets: newAvailable },
-            });
-            await tx.transaction.update({
-              where: { id: txn.id },
-              data: {
-                metadata: {
-                  ...((txn.metadata as object) || {}),
-                  ticketsReleased: true,
-                  ticketsReleasedReason: 'payment_intent.payment_failed',
-                  ticketsReleasedAt: new Date().toISOString(),
-                  releasedCount: booking.guestCount,
-                },
-              },
-            });
-          }
-        }
       }
 
       // Notify guest
@@ -514,11 +450,12 @@ export class WebhookService {
             select: {
               id: true,
               status: true,
-              eventId: true,
               guestCount: true,
-              event: {
+              seat: {
                 select: {
-                  maxparticipants: true,
+                  id: true,
+                  number: true,
+                  row: true,
                 },
               },
             },
@@ -557,36 +494,6 @@ export class WebhookService {
         });
 
         // Release tickets idempotently
-        const ticketsAlreadyReleased = Boolean(
-          (txn.metadata as any)?.ticketsReleased,
-        );
-        if (booking.eventId && !ticketsAlreadyReleased) {
-          const event = await tx.events.findUnique({
-            where: { id: booking.eventId },
-          });
-          if (event) {
-            const newAvailable = Math.min(
-              (event.availableTickets ?? 0) + (booking.guestCount || 0),
-              event.maxparticipants || (event.availableTickets ?? 0),
-            );
-            await tx.events.update({
-              where: { id: event.id },
-              data: { availableTickets: newAvailable },
-            });
-            await tx.transaction.update({
-              where: { id: txn.id },
-              data: {
-                metadata: {
-                  ...((txn.metadata as object) || {}),
-                  ticketsReleased: true,
-                  ticketsReleasedReason: 'payment_intent.canceled',
-                  ticketsReleasedAt: new Date().toISOString(),
-                  releasedCount: booking.guestCount,
-                },
-              },
-            });
-          }
-        }
       }
 
       // Notify guest
@@ -656,7 +563,7 @@ export class WebhookService {
       // Find parent booking transaction via chargeId if available
       let parent: {
         id: string;
-        experienceId: string | null;
+        eventId: string | null;
         bookingId: string | null;
       } | null = null;
       if (chargeId) {
@@ -665,19 +572,12 @@ export class WebhookService {
             stripeChargeId: chargeId,
             type: TransactionType.BOOKING_PAYMENT,
           },
-          select: { id: true, experienceId: true, bookingId: true },
+          select: { id: true, bookingId: true, eventId: true },
         });
       }
 
       // Determine host (payer) from experience if available
       let payerId: string | null = null;
-      if (parent?.experienceId) {
-        const exp = await tx.experience.findUnique({
-          where: { id: parent.experienceId },
-          select: { userId: true },
-        });
-        payerId = exp?.userId ?? null;
-      }
 
       const created = await tx.transaction.create({
         data: {
@@ -688,7 +588,7 @@ export class WebhookService {
           provider: PaymentProvider.STRIPE_CONNECT,
           payerId, // Host as the economic source of the fee when identifiable
           payeeId: null, // Platform; left null if no platform user entity
-          experienceId: parent?.experienceId ?? undefined,
+          eventId: parent?.eventId ?? undefined,
           bookingId: parent?.bookingId ?? undefined,
           parentTransactionId: parent?.id ?? undefined,
           stripeChargeId: chargeId,
@@ -794,8 +694,6 @@ export class WebhookService {
         transactionId: transaction.id,
         bookingId,
         hostId,
-        experienceId: transaction.booking?.experienceId,
-        eventId: transaction.booking?.eventId,
       }),
       ipAddress: 'Webhook',
     });
@@ -906,10 +804,10 @@ export class WebhookService {
           },
           select: {
             id: true,
-            experienceId: true,
             bookingId: true,
             currency: true,
             payerId: true,
+            eventId: true,
           },
         });
 
@@ -918,14 +816,14 @@ export class WebhookService {
 
         const created = await tx.transaction.create({
           data: {
-            type: TransactionType.HOST_PAYOUT,
+            type: TransactionType.SELLER_PAYOUT,
             status: TransactionStatus.SUCCESS,
             amount,
             currency: (Currency as any)[currency] ?? Currency.USD,
             provider: PaymentProvider.STRIPE_CONNECT,
             payerId: null, // Platform as payer; left null if no explicit platform user
             payeeId: host.id,
-            experienceId: parent?.experienceId ?? undefined,
+            eventId: parent?.eventId ?? undefined,
             bookingId: parent?.bookingId ?? undefined,
             parentTransactionId: parent?.id ?? undefined,
             stripeTransferId: transfer.id,
@@ -952,7 +850,7 @@ export class WebhookService {
           metadata: JSON.stringify({
             transactionId: created.id,
             bookingId: parent?.bookingId ?? undefined,
-            experienceId: parent?.experienceId ?? undefined,
+            eventId: parent?.eventId ?? undefined,
           }),
           ipAddress: 'Webhook',
         });
@@ -1067,8 +965,6 @@ export class WebhookService {
         metadata: JSON.stringify({
           transactionId: originalTransaction.id,
           bookingId: originalTransaction.booking?.id,
-          experienceId: originalTransaction.booking?.experienceId,
-          eventId: originalTransaction.booking?.eventId,
         }),
         ipAddress: 'Webhook',
       });

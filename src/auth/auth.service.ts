@@ -305,7 +305,7 @@ export class AuthService {
         status: true,
         isEmailVerified: true,
         isTwoFactorEnabled: true,
-        hostVerified: true,
+        sellerVerification: true,
         password: true,
         blockedUntil: true,
         roles: {
@@ -474,7 +474,7 @@ export class AuthService {
 
     const redirect = ADMIN
       ? '/admin/dashboard'
-      : HOST && user.hostVerified === true
+      : HOST && user.isEmailVerified === true
         ? '/host/dashboard'
         : '/users/profile';
 
@@ -576,7 +576,7 @@ export class AuthService {
         avatar: true,
         status: true,
         isEmailVerified: true,
-        hostVerified: true,
+        isSellerVerified: true,
         stripeOnboardingComplete: true,
         isTwoFactorEnabled: true,
 

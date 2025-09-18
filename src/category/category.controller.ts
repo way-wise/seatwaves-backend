@@ -45,11 +45,11 @@ export class CategoryController {
     return this.categoryService.categoryUpdate(id, body, file);
   }
 
-  //get expericen by category is or slug
-  @Get('experiences/:id')
-  getExperiencesByCategory(@Param('id') id: string) {
-    return this.categoryService.getExperiencesByCategory(id);
-  }
+  // //get expericen by category is or slug
+  // @Get('experiences/:id')
+  // getExperiencesByCategory(@Param('id') id: string) {
+  //   return this.categoryService.getExperiencesByCategory(id);
+  // }
 
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('admin.category.view')
@@ -68,10 +68,10 @@ export class CategoryController {
     return this.categoryService.findOne(id);
   }
 
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @Permissions('category.delete')
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.categoryService.remove(id);
-  }
+  // @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  // @Permissions('category.delete')
+  // @Delete(':id')
+  // remove(@Param('id') id: string) {
+  //   return this.categoryService.remove(id);
+  // }
 }

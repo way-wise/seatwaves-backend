@@ -92,14 +92,6 @@ export class BookingController {
     return this.bookingService.findHostAppBookings(req.user.userId, query);
   }
 
-  // ✅ Experience Host - Get booking by id
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @Permissions('booking.read')
-  @Get('experience/:id')
-  async findByExperience(@Param('id') id: string) {
-    return await this.bookingService.findByExperience(id);
-  }
-
   //Admin Get All Bookings
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('booking.read')

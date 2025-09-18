@@ -93,7 +93,6 @@ export class BlogService {
           },
         },
         author: { connect: { id: authorId } },
-        tags: tags ? { connect: tags.map((id) => ({ id })) } : undefined,
         categories: categories
           ? { connect: categories.map((id) => ({ id })) }
           : undefined,
@@ -180,9 +179,7 @@ export class BlogService {
             },
           },
         },
-        tags: parseData.data.tags
-          ? { set: parseData.data.tags.map((id) => ({ id })) }
-          : undefined,
+
         categories: parseData.data.categories
           ? { set: parseData.data.categories.map((id) => ({ id })) }
           : undefined,
@@ -205,7 +202,6 @@ export class BlogService {
           },
         },
         seo: true,
-        tags: true,
         categories: true,
       },
     });
@@ -244,7 +240,7 @@ export class BlogService {
             },
           },
           seo: true,
-          tags: true,
+
           categories: true,
         },
       }),

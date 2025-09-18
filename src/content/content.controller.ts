@@ -133,39 +133,6 @@ export class ContentController {
     return this.contentService.updateHeroSection(id, body, file);
   }
 
-  // ===== About =====
-  @Get('/becomehost')
-  getAbout() {
-    return this.contentService.getBecomeHosts();
-  }
-
-  //public url
-  @Get('/becomehost/public')
-  getAboutPublic() {
-    return this.contentService.getBecomeHostPublic();
-  }
-
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @Permissions('content.create')
-  @Post('becomehost')
-  @UseInterceptors(FileInterceptor('image'))
-  createAbout(@UploadedFile() file: Express.Multer.File, @Body() body: any) {
-    return this.contentService.createBecomeHost(body, file);
-  }
-
-  @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @Permissions('content.update')
-  @Put('becomehost/:id')
-  @UseInterceptors(FileInterceptor('image'))
-  updateAbout(
-    @Param('id') id: string,
-    @UploadedFile() file: Express.Multer.File,
-    @Body() body: any,
-  ) {
-    return this.contentService.updateBecomeHost(id, body, file);
-  }
-
   // ===== Testimonial =====
   @Get('testimonials')
   listTestimonials(@Query() query: { page?: string; limit?: string }) {
@@ -442,36 +409,6 @@ export class ContentController {
   }
 
   // ===== Card =====
-  @Get('cards')
-  getCardsAdmin(@Query('becomehostId') becomehostId: string) {
-    return this.contentService.getCardsAdmin(becomehostId);
-  }
-
-  @Get('/cards/public')
-  getCardsPublic(@Query('becomehostId') becomehostId?: string) {
-    return this.contentService.getCards(becomehostId);
-  }
-
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @Permissions('content.create')
-  @Post('card')
-  @UseInterceptors(FileInterceptor('image'))
-  createCard(@UploadedFile() file: Express.Multer.File, @Body() body: any) {
-    return this.contentService.createCard(body, file);
-  }
-
-  @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @Permissions('content.update')
-  @Put('card/:id')
-  @UseInterceptors(FileInterceptor('image'))
-  updateCard(
-    @Param('id') id: string,
-    @UploadedFile() file: Express.Multer.File,
-    @Body() body: any,
-  ) {
-    return this.contentService.updateCard(id, body, file);
-  }
 
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)

@@ -40,218 +40,7 @@ export class BookingService {
   private readonly logger = new Logger(BookingService.name);
   // ✅ Guest - Create a booking with concurrency protection
   async create(data: createBookingDto, userId: string) {
-    return await this.prisma.$transaction(async (tx) => {
-      // Get user with lock to prevent concurrent operations
-      const user = await tx.user.findUnique({
-        where: { id: userId },
-        include: { roles: { include: { role: true } } },
-      });
-      if (!user) throw new NotFoundException('This user does not exist');
-
-      let customerId = user.stripeCustomerId;
-      if (!customerId) {
-        const customer = await this.stripeService.getOrCreateCustomer(userId);
-        customerId = customer.id;
-      }
-
-      // Get event with pessimistic locking to prevent race conditions
-      const event = await tx.events.findUnique({
-        where: { id: data.eventId },
-        include: {
-          experience: {
-            select: {
-              id: true,
-              name: true,
-              userId: true,
-              coverImage: true,
-              status: true,
-              media: {
-                select: {
-                  id: true,
-                  url: true,
-                  type: true,
-                },
-              },
-            },
-          },
-          bookings: {
-            where: {
-              status: { in: ['PENDING', 'CONFIRMED'] },
-              deletedAt: null,
-            },
-            select: {
-              id: true,
-              guestCount: true,
-            },
-          },
-          _count: {
-            select: {
-              bookings: {
-                where: {
-                  status: { in: ['PENDING', 'CONFIRMED'] },
-                  deletedAt: null,
-                },
-              },
-            },
-          },
-        },
-      });
-
-      if (!event) throw new NotFoundException('This event does not exist');
-
-      // Comprehensive validation
-      if (data.guestCount > event.maxGuest) {
-        throw new ForbiddenException(
-          `This event can only accommodate ${event.maxGuest} guests.`,
-        );
-      }
-
-      if (event.experience.userId === userId)
-        throw new ForbiddenException('You cannot book your own experience');
-
-      if (event.experience.status !== 'PUBLISHED')
-        throw new ForbiddenException('This experience is not available');
-
-      if (event.status !== 'SCHEDULE')
-        throw new ForbiddenException('This event is not available');
-
-      // Check if event is still available (time-based validation)
-      // const now = new Date();
-      // if (event.availableEndAt && now > event.availableEndAt) {
-      //   throw new ForbiddenException('Booking period has ended');
-      // }
-
-      //TODO: add time-based validation
-      // if (event.availableAt && now < event.availableAt) {
-      //   throw new ForbiddenException('Booking not yet available');
-      // }
-
-      // Check for existing booking with atomic operation
-      const alreadyBooked = await tx.booking.findFirst({
-        where: {
-          eventId: data.eventId,
-          userId: userId,
-          status: { in: ['CONFIRMED'] },
-        },
-      });
-
-      console.log(alreadyBooked);
-
-      if (alreadyBooked) {
-        throw new ForbiddenException('You have already booked this experience');
-      }
-
-      // Calculate current bookings with atomic count
-      const currentBookedGuests = event.bookings.reduce(
-        (sum, booking) => sum + booking.guestCount,
-        0,
-      );
-
-      const totalAfterBooking = currentBookedGuests + data.guestCount;
-
-      if (totalAfterBooking > event.maxparticipants) {
-        const availableSlots = event.maxparticipants - currentBookedGuests;
-        throw new ForbiddenException(
-          `Only ${availableSlots} slots available. You requested ${data.guestCount} guests.`,
-        );
-      }
-
-      // Calculate pricing with proper validation
-      const basePrice = event.price.toNumber();
-      const discountPercent = event.discount.toNumber();
-
-      if (basePrice <= 0) {
-        throw new BadRequestException('Invalid event pricing');
-      }
-
-      const subtotal = basePrice * data.guestCount;
-      const discountAmount = subtotal * (discountPercent / 100);
-      const vat = 0; // Configure based on business rules
-      const tax = 0; // Configure based on business rules
-      const total = subtotal - discountAmount + vat + tax;
-
-      const paymentLink = await this.stripeService.createPaymentLink({
-        experienceId: event.experienceId,
-        eventId: data.eventId,
-        amount: total,
-        couponId: data.couponId,
-        customerId: customerId,
-        userId: user.id,
-      });
-
-      const booking = await tx.booking.create({
-        data: {
-          userId: userId,
-          eventId: data.eventId,
-          experienceId: event.experienceId,
-          guestCount: data.guestCount,
-          price: new Decimal(basePrice),
-          discount: new Decimal(discountAmount),
-          vat: new Decimal(vat),
-          tax: new Decimal(tax),
-          total: new Decimal(total),
-          startDate: event.date,
-          paymentMethod: 'STRIPE',
-          status: 'PENDING',
-          transactions: {
-            create: {
-              type: TransactionType.BOOKING_PAYMENT,
-              amount: paymentLink.finalAmount,
-              currency: Currency.USD,
-              provider: PaymentProvider.STRIPE_CONNECT,
-              payerId: userId,
-              payeeId: event.experience.userId,
-              experienceId: event.experienceId,
-              couponId: data.couponId,
-              stripePaymentIntent: paymentLink.paymentLinkId,
-              stripeAccountId: event.experience.userId,
-              platformFee: paymentLink.platformFee,
-              hostAmount: paymentLink.hostAmount,
-              description: `Payment for ${event.experience.name}`,
-            },
-          },
-        },
-      });
-
-      // Queue notifications asynchronously (don't await to avoid blocking)
-      // setImmediate(async () => {
-      //   try {
-      //     await this.notificationService.createAndQueueNotification(userId, {
-      //       type: 'BOOKING',
-      //       title: 'Booking Created',
-      //       message: `Your booking for ${event.experience.name} has been created successfully.`,
-      //       link: `/bookings/${booking.id}`,
-      //       image: event.experience.media[0]?.url,
-      //     });
-
-      //     await this.notificationService.createAndQueueNotification(
-      //       event.experience.userId,
-      //       {
-      //         type: 'BOOKING',
-      //         title: 'New Booking Received',
-      //         message: `New booking for ${event.experience.name} from ${user.name || 'Guest'}.`,
-      //         link: `/host/bookings/`,
-      //         image: event.experience.media[0]?.url,
-      //       },
-      //     );
-      //   } catch (error) {
-      //     this.logger.error('Failed to send notifications', error);
-      //   }
-      // });
-
-      // Return payment link for immediate processing
-      return {
-        status: true,
-        data: {
-          paymentUrl: paymentLink.paymentUrl,
-          platformFee: paymentLink.platformFee,
-          hostAmount: paymentLink.hostAmount,
-          appliedDiscount: paymentLink.appliedDiscount,
-          finalAmount: paymentLink.finalAmount,
-          booking,
-        },
-      };
-    });
+    return { status: true, message: 'Booking created successfully' };
   }
 
   // ✅ Guest - View own bookings
@@ -312,36 +101,6 @@ export class BookingService {
           guestCount: true,
           createdAt: true,
           updatedAt: true,
-          event: {
-            select: {
-              id: true,
-              date: true,
-              notes: true,
-              createdAt: true,
-              status: true,
-              startTime: true,
-              endTime: true,
-              experience: {
-                select: {
-                  id: true,
-                  name: true,
-                  coverImage: true,
-                  address: true,
-                  user: {
-                    select: {
-                      id: true,
-                      name: true,
-                    },
-                  },
-                },
-              },
-              reviews: {
-                where: {
-                  reviewerId: userId,
-                },
-              },
-            },
-          },
         },
       }),
       this.prisma.booking.count({
@@ -446,20 +205,6 @@ export class BookingService {
           createdAt: true,
           updatedAt: true,
           user: { select: { id: true, name: true, avatar: true, email: true } },
-          event: {
-            select: {
-              id: true,
-              date: true,
-              notes: true,
-              createdAt: true,
-              status: true,
-              startTime: true,
-              endTime: true,
-              experience: {
-                select: { id: true, name: true, coverImage: true },
-              },
-            },
-          },
         },
       }),
       this.prisma.booking.count({
@@ -508,9 +253,6 @@ export class BookingService {
       this.prisma.booking.findMany({
         where: {
           deletedAt: null,
-          experience: {
-            userId: userId,
-          },
         },
         select: {
           id: true,
@@ -522,20 +264,6 @@ export class BookingService {
           createdAt: true,
           updatedAt: true,
           user: { select: { id: true, name: true, avatar: true, email: true } },
-          event: {
-            select: {
-              id: true,
-              date: true,
-              notes: true,
-              createdAt: true,
-              status: true,
-              startTime: true,
-              endTime: true,
-              experience: {
-                select: { id: true, name: true, coverImage: true },
-              },
-            },
-          },
         },
         skip,
         take: parseInt(limit),
@@ -545,9 +273,6 @@ export class BookingService {
       this.prisma.booking.count({
         where: {
           deletedAt: null,
-          experience: {
-            userId: userId,
-          },
         },
       }),
     ]);
@@ -562,41 +287,6 @@ export class BookingService {
     };
   }
 
-  // ✅ Host - Get Booking by Experience
-  async findByExperience(experienceId: string) {
-    const experience = await this.prisma.experience.findUnique({
-      where: { id: experienceId },
-    });
-
-    if (!experience) throw new NotFoundException('Experience not found');
-
-    const booking = await this.prisma.booking.findMany({
-      where: {
-        deletedAt: null,
-        event: {
-          experienceId: experienceId,
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        user: { select: { id: true, name: true, avatar: true } },
-        event: {
-          select: {
-            id: true,
-            experience: { select: { id: true, name: true } },
-          },
-        },
-        transactions: true,
-      },
-    });
-
-    if (!booking) throw new NotFoundException('This booking does not exist');
-    return {
-      status: true,
-      data: booking,
-    };
-  }
-
   // ✅ Admin - View all bookings
   async findAll(query: any) {
     const { page = 1, limit = 10, status, search } = query;
@@ -607,11 +297,6 @@ export class BookingService {
     if (status) where.status = status;
     if (search) {
       where.OR = [
-        {
-          event: {
-            experience: { name: { contains: search, mode: 'insensitive' } },
-          },
-        },
         { user: { name: { contains: search, mode: 'insensitive' } } },
       ];
     }
@@ -624,15 +309,7 @@ export class BookingService {
         orderBy: { createdAt: 'desc' },
         include: {
           user: { select: { id: true, name: true } },
-          event: {
-            include: {
-              experience: {
-                include: {
-                  user: { select: { id: true, name: true, avatar: true } },
-                },
-              },
-            },
-          },
+
           transactions: true,
         },
       }),
@@ -653,13 +330,6 @@ export class BookingService {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
-        event: {
-          include: {
-            experience: {
-              select: { id: true, name: true },
-            },
-          },
-        },
         user: { select: { id: true, name: true, avatar: true } },
         transactions: true,
       },
@@ -743,11 +413,7 @@ export class BookingService {
     const bookingDetails = await this.prisma.transaction.findUnique({
       where: { id: transaction.id },
       include: {
-        booking: {
-          include: {
-            event: true,
-          },
-        },
+        booking: {},
       },
     });
 
@@ -764,12 +430,6 @@ export class BookingService {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
-        experience: {
-          select: {
-            userId: true,
-            cancellationFee: true,
-          },
-        },
         transactions: {
           where: { type: 'BOOKING_PAYMENT' },
           orderBy: { createdAt: 'desc' },
@@ -822,9 +482,7 @@ export class BookingService {
 
     // Compute refund amount: total paid minus fixed cancellationFee (if any)
     const originalPaid = Number(originalTxn.amount || 0);
-    const fee = booking.experience.cancellationFee
-      ? Number(booking.experience.cancellationFee)
-      : 0;
+    const fee = 0;
 
     const refundAmount = Math.max(originalPaid - fee, 0);
 
@@ -879,15 +537,16 @@ export class BookingService {
         {
           type: NotificationType.BOOKING,
           title: 'Booking Cancelled',
-          message: `Your booking ${bookingId} was cancelled. Refunded: $${refundAmount.toFixed(2)}${fee ? ` (Cancellation fee: $${fee.toFixed(2)})` : ''}.`,
+          message: `Your booking ${bookingId} was cancelled. Refunded: $${refundAmount.toFixed(2)}${fee ? ` (Cancellation fee: $${fee})` : ''}.`,
           link: `/users/booking/${bookingId}`,
         },
       );
 
       // Notify host
-      const hostId = booking.experience.userId;
-      if (hostId) {
-        await this.notificationService.createAndQueueNotification(hostId, {
+      //TODO: get actual host id
+      const sellerId = 'dddddddddddddd';
+      if (sellerId) {
+        await this.notificationService.createAndQueueNotification(sellerId, {
           type: NotificationType.BOOKING,
           title: 'Booking Cancelled by Guest',
           message: `A booking (${bookingId}) for your experience was cancelled by the guest.`,
@@ -906,7 +565,7 @@ export class BookingService {
       const bookingLink = `${this.configService.get('APP_CLIENT_URL')}/bookings/${bookingId}`;
       const refundLine =
         refundAmount > 0
-          ? `Refunded: $${refundAmount.toFixed(2)}${fee ? ` (Cancellation fee: $${fee.toFixed(2)})` : ''}.`
+          ? `Refunded: $${refundAmount.toFixed(2)}${fee ? ` (Cancellation fee: $${fee})` : ''}.`
           : 'No refund was due based on the cancellation policy.';
       const text = `Hi,
 
@@ -962,8 +621,6 @@ Thank you.`;
       order = 'desc',
       search,
       status,
-      experienceId,
-      eventId,
       from,
       to,
     } = parsedQuery.data as any;
@@ -975,12 +632,6 @@ Thank you.`;
     const where: Prisma.BookingWhereInput = { deletedAt: null };
 
     if (status) where.status = status as any;
-    if (experienceId) {
-      where.event = { ...where.event, experienceId } as any;
-    }
-    if (eventId) {
-      where.event = { ...(where.event as any), id: eventId } as any;
-    }
 
     // Search handling: supports either key-specific (e.g., 'experienceId=...') or broad search
     if (search && typeof search === 'string') {
@@ -995,15 +646,7 @@ Thank you.`;
               case 'id':
                 where.id = { equals: val } as any;
                 break;
-              case 'experienceId':
-                where.event = {
-                  ...(where.event as any),
-                  experienceId: val,
-                } as any;
-                break;
-              case 'eventId':
-                where.event = { ...(where.event as any), id: val } as any;
-                break;
+
               case 'userEmail':
                 where.user = {
                   ...(where.user as any),
@@ -1016,28 +659,12 @@ Thank you.`;
                   name: { contains: val, mode: 'insensitive' },
                 } as any;
                 break;
-              case 'experienceName':
-                where.event = {
-                  ...(where.event as any),
-                  experience: {
-                    ...(where.event as any)?.experience,
-                    name: { contains: val, mode: 'insensitive' },
-                  },
-                } as any;
-                break;
               default:
                 // Fallback to broad OR if unknown key
                 where.OR = [
                   { id: { equals: s } },
                   { user: { name: { contains: s, mode: 'insensitive' } } },
                   { user: { email: { contains: s, mode: 'insensitive' } } },
-                  {
-                    event: {
-                      experience: {
-                        name: { contains: s, mode: 'insensitive' },
-                      },
-                    },
-                  },
                 ];
             }
           }
@@ -1047,11 +674,6 @@ Thank you.`;
             { id: { equals: s } },
             { user: { name: { contains: s, mode: 'insensitive' } } },
             { user: { email: { contains: s, mode: 'insensitive' } } },
-            {
-              event: {
-                experience: { name: { contains: s, mode: 'insensitive' } },
-              },
-            },
           ];
         }
       }
@@ -1099,14 +721,6 @@ Thank you.`;
           tax: true,
           total: true,
           user: { select: { id: true, name: true, email: true, avatar: true } },
-          event: {
-            select: {
-              id: true,
-              date: true,
-              status: true,
-              experience: { select: { id: true, name: true, userId: true } },
-            },
-          },
         },
       }),
       this.prisma.booking.count({ where }),
@@ -1132,21 +746,7 @@ Thank you.`;
       where: { id: bookingId },
       include: {
         user: { select: { id: true, name: true, email: true, avatar: true } },
-        event: {
-          include: {
-            experience: {
-              select: {
-                id: true,
-                name: true,
-                coverImage: true,
-                user: {
-                  select: { id: true, name: true, email: true, avatar: true },
-                },
-              },
-            },
-          },
-        },
-        experience: { select: { id: true, name: true, coverImage: true } },
+
         transactions: {
           orderBy: { createdAt: 'desc' },
           select: {
@@ -1163,7 +763,7 @@ Thank you.`;
             stripeChargeId: true,
             stripeTransferId: true,
             platformFee: true,
-            hostAmount: true,
+            sellerAmount: true,
             payer: { select: { id: true, name: true, email: true } },
             payee: { select: { id: true, name: true, email: true } },
           },

@@ -52,7 +52,7 @@ model User {
   status                   UserStatus             @default(ACTIVE)
   isEmailVerified          Boolean                @default(false)
   isTwoFactorEnabled       Boolean                @default(false)
-  hostVerified             Boolean                @default(false)
+  isSellerVerified         Boolean                @default(false)
   blockedUntil             DateTime?
   createdAt                DateTime               @default(now())
   updatedAt                DateTime               @updatedAt
@@ -64,7 +64,7 @@ model User {
   lastLoginAt              DateTime?
   loginHistory             LoginHistory[]
   accounts                 Account[]
-  experience               Experience[]
+  events                   Event[]
   bookings                 Booking[]
   reviewsGiven             Review[]               @relation("Reviewer")
   reviewReceived           Review[]               @relation("Reviewee")
@@ -73,8 +73,7 @@ model User {
   messageRoomsSent         MessageRoom[]          @relation("MessageRoomSender")
   messageRoomsReceived     MessageRoom[]          @relation("MessageRoomReceiver")
   notifications            Notification[]
-  wishlistItems            WishlistItem[]
-  hostVerification         HostVerification[]
+  sellerVerification       SellerVerification[]
   activityLogs             ActivityLog[]
   businessInfo             BusinessInfo?
   notificationSettings     NotificationsSettings?
@@ -82,20 +81,17 @@ model User {
   transactionsPaid         Transaction[]          @relation("TransactionPayer")
   transactionsReceived     Transaction[]          @relation("TransactionPayee")
   transactionsApproved     Transaction[]          @relation("TransactionApprovedBy")
-  coupons                  Coupon[]
-  customerRedemptions      CouponRedemption[]     @relation("CustomerRedemptions")
-  hostRedemptions          CouponRedemption[]     @relation("HostRedemptions")
   blogs                    Blog[]
   interests                UserInterest[]
-  withdrawalRequests       WithdrawalRequest[]    @relation("HostWithdrawals")
+  withdrawalRequests       WithdrawalRequest[]    @relation("SellerWithdrawals")
   withdrawalApprovals      WithdrawalRequest[]    @relation("WithdrawalApprovals")
-  reels                    Reels[]
   feedBacks                FeedBack[]
   // Loyalty relations
   rewardPoints             RewardPoints[]
   redemptions              Redemption[]
   userLoyalty              UserLoyalty?
   tierHistories            TierHistory[]
+  WishlistItem             WishlistItem[]
 
   @@index([name])
   @@index([email])
@@ -231,29 +227,20 @@ enum LoginHistoryStatus {
   CHANGE_PASSWORD
 }
 
-model Tag {
-  id          String       @id @default(ulid())
-  name        String       @unique
-  slug        String       @unique @db.VarChar(255)
-  blogs       Blog[]       @relation("BlogTags")
-  experiences Experience[] @relation("ExperienceTags")
-
-  @@index([name])
-  @@index([slug])
-  @@map("tags")
-}
-
 model Category {
-  id          String         @id @default(ulid())
-  name        String         @unique
-  slug        String         @unique @db.VarChar(255)
-  icon        String?
-  experiences Experience[]
-  blogs       Blog[]         @relation("BlogCategories")
-  interests   UserInterest[]
-  status      CategoryStatus @default(ACTIVE)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @default(now())
+  id        String         @id @default(ulid())
+  name      String         @unique
+  slug      String         @unique @db.VarChar(255)
+  icon      String?
+  parentId  String?
+  parent    Category?      @relation("CategoryToCategory", fields: [parentId], references: [id], onDelete: Cascade)
+  children  Category[]     @relation("CategoryToCategory")
+  blogs     Blog[]         @relation("BlogCategories")
+  interests UserInterest[]
+  status    CategoryStatus @default(ACTIVE)
+  events    Event[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
 
   @@index([name])
   @@index([slug])
@@ -277,185 +264,57 @@ model UserInterest {
   @@map("user_interest")
 }
 
-model Experience {
-  id                String                  @id @default(ulid()) @map("experienceId")
-  user              User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId            String
-  name              String
-  shortDesc         String                  @default("")
-  slug              String                  @unique @db.VarChar(255)
-  status            ExperienceStatus        @default(DRAFT)
-  address           String?
-  city              String?
-  state             String?
-  country           String?
-  zipCode           String?
-  latitude          Float?
-  longitude         Float?
-  scheduleType      ScheduleType            @default(ONTIME)
-  cancelPolicy      String?
-  latePolicy        String?
-  reschedulePolicy  String?
-  refundable        Boolean                 @default(false)
-  coverImage        String?
-  cancellationFee   Decimal?
-  detailsDesc       String?                 @db.Text
-  includes          String[]                @default([])
-  notes             String?
-  guestRequirements String?
-  agreement         String?
-  tags              Tag[]                   @relation("ExperienceTags")
-  averageRating     Float?                  @default(0.0)
-  reviewCount       Int?                    @default(0)
-  reviews           Review[]
-  category          Category                @relation(fields: [categoryId], references: [id])
-  categoryId        String
-  badges            ExperienceBadge[]
-  amenities         ExperienceAmenity[]
-  media             ExperienceMedia[]
-  wishlistItems     WishlistItem[]
-  translations      ExperienceTranslation[]
-  createdAt         DateTime                @default(now())
-  updatedAt         DateTime                @updatedAt
-  deletedAt         DateTime?
-  events            Events[]                @relation("Events")
-  activities        Json?
-  timeslots         Json?
-  startDate         DateTime?
-  endDate           DateTime?
-  startTime         String?
-  duration          Float?
-  endTime           String?
-  isFeatured        Boolean                 @default(false)
-  isActive          Boolean                 @default(true)
-  price             Decimal                 @default(0.0)
-  discount          Decimal                 @default(0.0)
-  discountType      DiscountType            @default(PERCENTAGE)
-  // Number of days before the event date when it should be generated/made available (e.g., 7/15/30)
-  openWindowDays    Int?
-  bookingCount      Int                     @default(0)
-  maxGuest          Int?
-  maxPerSlot        Int?
-  maxparticipants   Int?
-  bookings          Booking[]
-  rooms             MessageRoom[]
-  transactions      Transaction[]
-  coupons           Coupon[]
-  redemptions       CouponRedemption[]
-  reels             Reels[]
-  recurrenceRules   RecurrenceRule?
-  featured          featuredExperience[]
+model Event {
+  id          String   @id @default(ulid())
+  eventId     String   @unique
+  title       String
+  description String?
+  venue       String?
+  startTime   DateTime
+  endTime     DateTime
+  duration    Int? // in minutes
+  metaData    Json?
 
-  @@index([name])
-  @@index([latitude])
-  @@index([longitude])
-  @@index([slug])
-  @@index([startDate])
-  @@index([deletedAt])
-  @@index([userId])
-  @@index([status])
-  @@index([createdAt])
-  @@index([city])
-  @@index([country])
-  @@index([categoryId])
-  @@index([isActive])
-  @@index([openWindowDays])
-  @@map("experiences")
-}
+  status       EventStatus    @default(ONGOING)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  sellerId     String
+  seller       User           @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  seats        Seat[]
+  reviews      Review[]
+  rooms        MessageRoom[]
+  transactions Transaction[]
+  categoryId   String
+  category     Category       @relation(fields: [categoryId], references: [id])
+  WishlistItem WishlistItem[]
 
-model RecurrenceRule {
-  id             String     @id @default(ulid())
-  experienceId   String     @unique
-  experience     Experience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
-  frequency      Frequency  @default(DAILY)
-  interval       Int?       @default(1)
-  byday          DayType[]
-  count          Int?
-  until          DateTime?
-  // Number of days before the event date when it should be generated/made available (e.g., 7/15/30)
-  openWindowDays Int?
-  nextRecurrence DateTime?
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
-}
-
-enum Frequency {
-  DAILY
-  WEEKLY
-  MONTHLY
-  YEARLY
-}
-
-enum DayType {
-  MO
-  TU
-  WE
-  TH
-  FR
-  SA
-  SU
-}
-
-model Events {
-  id              String       @id @default(ulid())
-  experienceId    String
-  title           String?
-  date            DateTime
-  startTime       String?
-  duration        Float?
-  endTime         String?
-  maxGuest        Int
-  maxperSlot      Int?
-  discount        Decimal      @default(0.0)
-  discountType    DiscountType @default(PERCENTAGE)
-  notes           String?
-  price           Decimal      @default(0.0)
-  status          EventStatus  @default(SCHEDULE)
-  activities      Json?
-  timeslots       Json?
-  isAvailable     Boolean      @default(true)
-  maxparticipants Int          @default(0)
-  availableTickets Int          @default(0)
-  bookings        Booking[]
-  reviews         Review[]
-  experience      Experience   @relation("Events", fields: [experienceId], references: [id], onDelete: Cascade)
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @default(now()) @updatedAt
-
-  @@unique([experienceId, date, startTime])
-  @@index([maxparticipants])
-  @@index([date])
-  @@index([experienceId])
-  @@index([status])
-  @@index([createdAt])
-  @@index([isAvailable])
-  @@index([startTime])
-  @@index([title])
-  @@index([price])
+  @@index([eventId])
   @@map("events")
 }
 
-// model RecurrenceRule {
-//   id             String     @id @default(ulid())
-//   experience     Experience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
-//   experienceId   String     @unique  // 1:1 relation with Experience
-
-//   frequency      Frequency  @default(DAILY) // DAILY, WEEKLY, MONTHLY, etc.
-//   interval       Int        @default(1)     // every 1 day/week/etc.
-//   byday          String[]   // e.g., ["MO", "WE", "FR"]
-//   count          Int?       // total number of occurrences
-//   until          DateTime?  // end date for recurrence
-//   nextRecurrence DateTime?  // for caching/next instance generation
-
-//   createdAt      DateTime   @default(now())
-//   updatedAt      DateTime   @updatedAt
-// }
-
 enum EventStatus {
-  SCHEDULE
+  ONGOING
   COMPLETED
   CANCELLED
-  RESCHEDULE
+  RESCHEDULED
+}
+
+model Seat {
+  id       String  @id @default(ulid())
+  seatId   String
+  eventId  String
+  row      String?
+  number   Int?
+  isBooked Boolean @default(false)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  event     Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  bookings  Booking[]
+
+  @@unique([seatId, eventId], name: "unique_seat_per_event")
+  @@index([eventId])
+  @@map("seats")
 }
 
 enum DiscountType {
@@ -463,65 +322,23 @@ enum DiscountType {
   FIXED
 }
 
-enum ScheduleType {
-  ONTIME
-  RECURRING
-  CUSTOM
-}
-
-enum ExperienceStatus {
-  PUBLISHED
-  ANOUNCEMENT
-  DRAFT
-  PENDING
-  PAUSED
-  CANCELLED
-  REJECTED
-  DELETED
-}
-
-model Badge {
-  id          String            @id @default(ulid())
-  name        String            @unique
-  icon        String?
-  experiences ExperienceBadge[]
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-
-  @@map("badges")
-}
-
-model ExperienceBadge {
-  id           String     @id @default(ulid())
-  experience   Experience @relation(fields: [experienceId], references: [id])
-  experienceId String
-  badge        Badge      @relation(fields: [badgeId], references: [id])
-  badgeId      String
-
-  @@unique([experienceId, badgeId])
-  @@map("experience_badges")
-}
-
 model Booking {
-  id            String        @id @default(ulid()) @map("bookingId")
-  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String          @id @default(ulid()) @map("bookingId")
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId        String
-  eventId       String?
-  event         Events?       @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  experienceId  String
-  experience    Experience    @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+  seatId        String
+  seat          Seat            @relation(fields: [seatId], references: [id], onDelete: Cascade)
   startDate     DateTime
-  guestCount    Int           @default(1)
+  guestCount    Int             @default(1)
   price         Decimal
   discount      Decimal
   vat           Decimal
   tax           Decimal
   total         Decimal
-  status        BookingStatus @default(PENDING)
-  paymentMethod PaymentMethod
-  couponId      String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @default(now()) @updatedAt
+  status        BookingStatus   @default(PENDING)
+  paymentMethod PaymentProvider @default(STRIPE)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @default(now()) @updatedAt
   deletedAt     DateTime?
   transactions  Transaction[]
   rooms         MessageRoom[]
@@ -549,25 +366,23 @@ model Transaction {
   payeeId String? // Who receives
 
   // Related entities
-  booking      Booking?    @relation(fields: [bookingId], references: [id])
-  bookingId    String?
-  coupon       Coupon?     @relation(fields: [couponId], references: [id])
-  couponId     String?
-  experience   Experience? @relation(fields: [experienceId], references: [id])
-  experienceId String?
+  booking   Booking? @relation(fields: [bookingId], references: [id])
+  bookingId String?
+
+  event   Event?  @relation(fields: [eventId], references: [id])
+  eventId String?
 
   // Coupon purchase relation (reverse relation)
-  couponPurchases Coupon[] @relation("CouponPurchase")
 
   // Stripe Connect specific
   stripePaymentIntent String? // Stripe PaymentIntent ID
-  stripeTransferId    String? // Stripe Transfer ID (for host payouts)
+  stripeTransferId    String? // Stripe Transfer ID (for seller payouts)
   stripeAccountId     String? // Connected account ID
   stripeChargeId      String? // Stripe Charge ID
 
   // Commission tracking
-  platformFee Decimal? @db.Decimal(10, 2) // Admin commission
-  hostAmount  Decimal? @db.Decimal(10, 2) // Amount to host after fees
+  platformFee  Decimal? @db.Decimal(10, 2) // Admin commission
+  sellerAmount Decimal? @db.Decimal(10, 2) // Amount to seller after fees
 
   // External references
   externalTxnId       String? // External payment provider ID
@@ -599,8 +414,7 @@ model Transaction {
   @@index([payerId])
   @@index([payeeId])
   @@index([bookingId])
-  @@index([couponId])
-  @@index([experienceId])
+  @@index([eventId])
   @@index([stripePaymentIntent])
   @@index([parentTransactionId])
   @@index([createdAt])
@@ -639,7 +453,7 @@ enum TransactionType {
   COUPON_PURCHASE // Customer → Platform (for coupon)
 
   // Platform transactions
-  HOST_PAYOUT // Platform → Host (earnings transfer)
+  SELLER_PAYOUT // Platform → Seller (earnings transfer)
   ADMIN_COMMISSION // Platform commission (tracking)
 
   // Refund transactions
@@ -647,8 +461,8 @@ enum TransactionType {
   COUPON_REFUND // Platform → Customer (cancelled coupon)
 
   // Manual transactions
-  MANUAL_DEPOSIT // Admin → Host (manual credit)
-  MANUAL_WITHDRAWAL // Host → Admin (manual debit)
+  MANUAL_DEPOSIT // Admin → Seller (manual credit)
+  MANUAL_WITHDRAWAL // Seller → Admin (manual debit)
   ADJUSTMENT // Admin adjustments
 }
 
@@ -658,33 +472,21 @@ enum Currency {
   GBP
 }
 
-enum PaymentMethod {
-  STRIPE
-  BKASH
-  NAGAD
-  ROCKET
-  MANUAL
-  CASH
-  WALLET
-}
-
 model Review {
-  id           String       @id @default(ulid()) @map("reviewId")
-  eventId      String?
-  event        Events?      @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  experienceId String
-  experience   Experience   @relation(fields: [experienceId], references: [id], onDelete: Cascade)
-  reviewer     User         @relation("Reviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
-  reviewerId   String
-  reviewee     User         @relation("Reviewee", fields: [revieweeId], references: [id], onDelete: Cascade)
-  revieweeId   String
-  rating       Int          @default(0)
-  title        String?
-  comment      String
-  status       ReviewStatus @default(PENDING)
-  createdAt    DateTime     @default(now())
-  replyed      String?
-  repliedAt    DateTime?
+  id         String       @id @default(ulid()) @map("reviewId")
+  eventId    String
+  event      Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  reviewer   User         @relation("Reviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
+  reviewerId String
+  reviewee   User         @relation("Reviewee", fields: [revieweeId], references: [id], onDelete: Cascade)
+  revieweeId String
+  rating     Int          @default(0)
+  title      String?
+  comment    String
+  status     ReviewStatus @default(PENDING)
+  createdAt  DateTime     @default(now())
+  replyed    String?
+  repliedAt  DateTime?
 
   @@index([rating])
   @@index([eventId])
@@ -699,191 +501,21 @@ enum ReviewStatus {
   REJECTED
 }
 
-model Coupon {
-  id     String  @id @default(ulid())
-  code   String  @unique
-  qrCode String? @unique
-
-  // Customer relationship (who bought the coupon)
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId String
-
-  // Experience relationship (where coupon can be redeemed)
-  experience   Experience @relation(fields: [experienceId], references: [id])
-  experienceId String
-
-  // Coupon details
-  type            CouponType
-  title           String
-  description     String
-  value           Float // Monetary value
-  currency        String     @default("USD")
-  discountPercent Int?
-
-  // Usage tracking
-  maxUses   Int          @default(1)
-  usedCount Int          @default(0)
-  status    CouponStatus @default(ACTIVE)
-
-  // Validity
-  validFrom DateTime
-  validTo   DateTime
-
-  // Metadata
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Purchase tracking
-  purchaseTransaction   Transaction? @relation("CouponPurchase", fields: [purchaseTransactionId], references: [id])
-  purchaseTransactionId String?
-
-  // Relationships
-  redemptions  CouponRedemption[]
-  transactions Transaction[] // Transactions related to this coupon
-
-  @@index([status])
-  @@index([experienceId])
-  @@index([userId])
-  @@index([validFrom, validTo])
-  @@index([userId, status])
-  @@index([experienceId, status])
-  @@map("coupons")
-}
-
-model CouponRedemption {
-  id String @id @default(ulid())
-
-  // Relationships
-  coupon       Coupon     @relation(fields: [couponId], references: [id])
-  couponId     String
-  customer     User       @relation("CustomerRedemptions", fields: [customerId], references: [id])
-  customerId   String // User who bought/owns the coupon
-  experience   Experience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
-  experienceId String
-  host         User       @relation("HostRedemptions", fields: [hostId], references: [id])
-  hostId       String // Experience owner who validated redemption
-
-  // Redemption details
-  redeemedAt DateTime @default(now())
-  amountUsed Float? // For partial redemptions
-  notes      String?
-
-  // Fraud prevention
-  ipAddress String?
-  location  String? // GPS coordinates
-
-  @@index([couponId])
-  @@index([customerId])
-  @@index([experienceId])
-  @@index([hostId])
-  @@index([redeemedAt])
-  @@map("coupon_redemptions")
-}
-
-enum CouponStatus {
-  ACTIVE
-  USED
-  EXPIRED
-  CANCELLED
-}
-
-enum CouponType {
-  PREPAID_VALUE // $20 to spend at venue
-  SPECIFIC_DEAL // 2 cocktails for $15
-  BONUS_INCENTIVE // buy $30, get $5 extra
-}
-
-model Amenity {
-  id          String              @id @default(ulid())
-  name        String
-  slug        String              @unique @db.VarChar(255)
-  icon        String?
-  description String?
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-  experiences ExperienceAmenity[]
-
-  @@index([createdAt])
-  @@index([name])
-  @@index([slug])
-  @@map("amenities")
-}
-
-model ExperienceAmenity {
-  id           String     @id @default(ulid())
-  experience   Experience @relation(fields: [experienceId], references: [id])
-  experienceId String
-  amenity      Amenity    @relation(fields: [amenityId], references: [id])
-  amenityId    String
-
-  @@unique([experienceId, amenityId])
-  @@index([amenityId])
-  @@map("experience_amenities")
-}
-
-model ExperienceMedia {
-  id           String      @id @default(ulid())
-  experience   Experience  @relation(fields: [experienceId], references: [id])
-  experienceId String
-  status       MediaStatus @default(ACTIVE)
-  title        String?
-  description  String?
-  url          String
-  type         MediaType
-  uploadedAt   DateTime    @default(now())
-
-  @@index([uploadedAt])
-  @@map("images")
-}
-
-enum MediaStatus {
-  ACTIVE
-  INACTIVE
-}
-
-enum MediaType {
-  IMAGE
-  VIDEO
-  AUDIO
-  FILE
-  REELS
-}
-
-model ExperienceTranslation {
-  id           String       @id @default(ulid())
-  experience   Experience   @relation(fields: [experienceId], references: [id])
-  experienceId String
-  languageCode LanguageCode @default(en)
-  title        String
-  description  String
-
-  @@unique([experienceId, languageCode])
-  @@map("translations")
-}
-
-enum LanguageCode {
-  en
-  bn
-  es
-  fr
-}
-
 model MessageRoom {
-  id           String     @id @default(ulid())
-  sender       User       @relation("MessageRoomSender", fields: [senderId], references: [id])
-  senderId     String
-  receiver     User       @relation("MessageRoomReceiver", fields: [receiverId], references: [id])
-  receiverId   String
-  experienceId String
-  experience   Experience @relation(fields: [experienceId], references: [id])
-  bookingId    String?
-  booking      Booking?   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  messages     Message[]
+  id         String    @id @default(ulid())
+  sender     User      @relation("MessageRoomSender", fields: [senderId], references: [id])
+  senderId   String
+  receiver   User      @relation("MessageRoomReceiver", fields: [receiverId], references: [id])
+  receiverId String
+  eventId    String
+  event      Event     @relation(fields: [eventId], references: [id])
+  bookingId  String?
+  booking    Booking?  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  messages   Message[]
 
-  @@unique([senderId, receiverId, experienceId])
+  @@unique([senderId, receiverId, eventId], name: "unique_message_room")
   @@index([createdAt])
   @@index([bookingId])
   @@index([receiverId])
@@ -948,11 +580,9 @@ enum NotificationType {
   WISHLIST
   COUPON
   EVENT
-  EXPERIENCE
   PAYMENT
   SYSTEM
   ALERT
-  EXPERIENCE_SUBMITTED
 }
 
 model ActivityLog {
@@ -970,51 +600,24 @@ model ActivityLog {
   @@map("activity_log")
 }
 
-model featuredExperience {
-  id           String     @id @default(ulid())
-  experience   Experience @relation(fields: [experienceId], references: [id])
-  experienceId String @unique
-  createdAt    DateTime   @default(now())
-
-  @@index([createdAt])
-  @@index([experienceId])
-  @@map("featured_experiences")
-}
-
-
-model WishlistItem {
-  id           String     @id @default(ulid())
-  userId       String
-  user         User       @relation(fields: [userId], references: [id])
-  experience   Experience @relation(fields: [experienceId], references: [id])
-  experienceId String
-  createdAt    DateTime   @default(now())
-
-  @@unique([userId, experienceId])
-  @@index([userId])
-  @@index([experienceId])
-  @@index([createdAt])
-  @@map("wishlist_items")
-}
-
-model HostVerification {
+model SellerVerification {
   id         String    @id @default(ulid())
-  user       User      @relation(fields: [userId], references: [id])
-  userId     String
+  seller     User      @relation(fields: [sellerId], references: [id])
+  sellerId   String
   idDocument String
   verified   Boolean
   verifiedAt DateTime?
 
   @@index([verified])
   @@index([verifiedAt])
-  @@index([userId])
-  @@map("host_verifications")
+  @@index([sellerId])
+  @@map("seller_verifications")
 }
 
 model BusinessInfo {
   id                 String             @id @default(ulid())
-  userId             String             @unique
-  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sellerId           String             @unique
+  seller             User               @relation(fields: [sellerId], references: [id], onDelete: Cascade)
   status             BusinessInfoStatus @default(PENDING)
   name               String?
   type               String?
@@ -1040,7 +643,7 @@ model BusinessInfo {
   createdAt          DateTime           @default(now())
 
   @@index([verifiedAt])
-  @@index([userId])
+  @@index([sellerId])
   @@index([createdAt])
   @@map("business_info")
 }
@@ -1061,8 +664,7 @@ model NotificationsSettings {
   payoutintiated      Boolean  @default(true)
   payoutcompleted     Boolean  @default(true)
   newreview           Boolean  @default(true)
-  experienceupdated   Boolean  @default(true)
-  tipsforhost         Boolean  @default(true)
+  eventupdate         Boolean  @default(true)
   promotionaloffer    Boolean  @default(true)
   loginnewdevice      Boolean  @default(true)
   policychange        Boolean  @default(true)
@@ -1091,6 +693,7 @@ model Blog {
   excerpt     String?    @db.Text // short description
   coverImage  String? // optional featured image
   status      BlogStatus @default(DRAFT) // DRAFT | PUBLISHED
+  tags        String[]   @default([]) // array of tags
   publishedAt DateTime? // only set when published
   isFeatured  Boolean    @default(false) // used for homepage
   isDeleted   Boolean    @default(false)
@@ -1098,16 +701,14 @@ model Blog {
   authorId String
   author   User   @relation(fields: [authorId], references: [id])
 
-  tags       Tag[]      @relation("BlogTags")
   categories Category[] @relation("BlogCategories")
 
-  seo       SeoMetadata? @relation("BlogToSeoMetadata", fields: [seoId], references: [id])
-  seoId     String?      @unique
+  seo   SeoMetadata? @relation("BlogToSeoMetadata", fields: [seoId], references: [id])
+  seoId String?      @unique
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   faq       HelpFaq[]
-  
 
   @@index([isFeatured])
   @@index([isDeleted])
@@ -1126,8 +727,8 @@ enum BlogStatus {
 
 model WithdrawalRequest {
   id          String                  @id @default(ulid())
-  hostId      String
-  host        User                    @relation("HostWithdrawals", fields: [hostId], references: [id])
+  sellerId    String
+  seller      User                    @relation("SellerWithdrawals", fields: [sellerId], references: [id])
   amount      Decimal                 @db.Decimal(10, 2)
   currency    Currency                @default(USD)
   description String?
@@ -1147,7 +748,7 @@ model WithdrawalRequest {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([hostId])
+  @@index([sellerId])
   @@index([status])
   @@index([requestedAt])
   @@index([createdAt])
@@ -1175,8 +776,6 @@ model HelpFaq {
   updatedAt DateTime      @updatedAt
   deletedAt DateTime?
   // Link back to settings.faq relation
- 
-  becomehost becomehost[] @relation("BecomeHostToHelpFaq")
 
   @@index([status])
   @@index([createdAt])
@@ -1200,49 +799,16 @@ enum HelpType {
   BOOKING
   PAYMENT
   EVENT
-  EXPERIENCE
   ACCOUNT
   COUPON
   REVIEW
   MESSAGE
   NOTIFICATION
   SYSTEM
-  BECOMEHOST
+  GENERAL
+  SELLER
+  USER
   OTHER
-}
-
-enum ReelPlatform {
-  YOUTUBE
-  TIKTOK
-  FACEBOOK
-}
-
-model Reels {
-  id           String       @id @default(ulid())
-  platform     ReelPlatform
-  videoId      String // Store only unique video ID from platform
-  title        String?
-  description  String?
-  thumbnail    String? // Optional cached thumbnail
-  duration     Int? // Seconds
-  isActive     Boolean      @default(true)
-  createdBy    User         @relation(fields: [createdById], references: [id])
-  createdById  String
-  experienceId String
-  experience   Experience   @relation(fields: [experienceId], references: [id])
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  deletedAt    DateTime?
-
-  @@unique([platform, videoId]) // Prevent duplicates
-  @@index([platform])
-  @@index([isActive])
-  @@index([experienceId])
-  @@index([createdById])
-  @@index([createdAt])
-  @@index([updatedAt])
-  @@index([deletedAt])
-  @@map("reels")
 }
 
 model FeedBack {
@@ -1251,20 +817,20 @@ model FeedBack {
   name      String
   message   String
   userId    String?
-  platform  PlatformType @default(WEOUT_WEB)
+  platform  PlatformType @default(WEB)
   user      User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
-  
+
   @@index([userId])
   @@index([createdAt])
   @@map("feedback")
 }
 
 enum PlatformType {
-  WEOUT_WEB
-  WEOUT_ANDROID
-  WEOUT_IOS
+  WEB
+  ANDROID
+  IOS
 }
 
 /// Track Stripe webhook events for idempotency and auditing
@@ -1300,253 +866,150 @@ enum ChangeFrequency {
 }
 
 model heroSection {
-  id        String      @id @default(ulid())
-  title     String
+  id          String   @id @default(ulid())
+  title       String
   description String?
-  sortName String?
-  image String?
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  
+  sortName    String?
+  image       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([createdAt])
   @@index([updatedAt])
   @@map("hero_section")
 }
 
-model becomehost {
-  id        String      @id @default(ulid())
-  heading     String
-  subHeading String?
-  image String?
-  content   String?     @db.Text
-  seo       SeoMetadata @relation("BecomeHostToSeoMetadata", fields: [seoId], references: [id])
-  seoId     String      @unique
-  faq       HelpFaq[]   @relation("BecomeHostToHelpFaq")
-  cards     card[]
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  
-
-  @@index([createdAt])
-  @@index([updatedAt])
-}
-
 model banner {
-  id        String      @id @default(ulid())
-  title     String
+  id          String   @id @default(ulid())
+  title       String
   description String?
-  image String?
-  isActive  Boolean     @default(true)
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  image       String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
   @@index([isActive])
   @@index([createdAt])
   @@index([updatedAt])
 }
 
 model card {
-  id        String      @id @default(ulid())
-  title     String
+  id          String   @id @default(ulid())
+  title       String
   description String?
-  image String?
-  isActive  Boolean     @default(true)
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  becomehostId String?
-  becomehost   becomehost? @relation(fields: [becomehostId], references: [id]) 
-
+  image       String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  type        CardType @default(FEATURED)
 
   @@index([isActive])
   @@index([createdAt])
   @@index([updatedAt])
 }
 
+enum CardType {
+  FEATURED
+  TRENDING
+  NEW
+  POPULAR
+  RECOMMENDED
+}
+
 model settings {
-  id        String      @id @default(ulid())
-  siteName String
-  siteUrl String
-  siteLogo String?
-  siteFavicon String?
+  id              String   @id @default(ulid())
+  siteName        String
+  siteUrl         String
+  siteLogo        String?
+  siteFavicon     String?
   siteDescription String?
-  siteKeywords String?
-  siteEmail String?
-  sitePhone String?
-  siteAddress String?
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  
+  siteKeywords    String?
+  siteEmail       String?
+  sitePhone       String?
+  siteAddress     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@index([createdAt])
   @@index([updatedAt])
 }
 
 model contactinformation {
-  id        String      @id @default(ulid())
-  email String
-  secondaryEmail String?
-  phone String
-  phoneMessage String?
-  secondaryPhone String?
-  address String?
+  id               String   @id @default(ulid())
+  email            String
+  secondaryEmail   String?
+  phone            String
+  phoneMessage     String?
+  secondaryPhone   String?
+  address          String?
   secondaryAddress String?
-  businessHours String?
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  
+  businessHours    String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 model testimonial {
-  id        String      @id @default(ulid())
-  name      String
-  badgeTitle String?
+  id          String   @id @default(ulid())
+  name        String
+  badgeTitle  String?
   designation String?
-  image String?
-  title String?
+  image       String?
+  title       String?
   description String?
-  position String?
-  isActive Boolean @default(true)
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  position    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([isActive])
   @@index([createdAt])
   @@index([updatedAt])
 }
 
-model privacyPolicy {
-  id        String      @id @default(ulid())
-  title     String
+model dynamicPage {
+  id          String      @id @default(ulid())
+  title       String
+  slug        String      @unique @db.VarChar(255) // for SEO-friendly URLs
   description String?
-  image String?
-  content   String?     @db.Text
-  seo       SeoMetadata @relation("PrivacyPolicyToSeoMetadata", fields: [seoId], references: [id])
-  seoId     String      @unique
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  
+  image       String?
+  content     String?     @db.Text
+  seo         SeoMetadata @relation("DynamicPageToSeoMetadata", fields: [seoId], references: [id])
+  seoId       String      @unique
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
-  @@index([createdAt])
-  @@index([updatedAt])
-}
-
-model termsAndService {
-  id        String      @id @default(ulid())
-  title     String
-  description String?
-  image String?
-  content   String?     @db.Text
-  seo       SeoMetadata @relation("TermsAndConditionsToSeoMetadata", fields: [seoId], references: [id])
-  seoId     String      @unique
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-
-  @@index([createdAt])
-  @@index([updatedAt])
-}
-
-model trustandSafety {
-  id        String      @id @default(ulid())
-  title     String
-  description String?
-  image String?
-  content   String?     @db.Text
-  seo       SeoMetadata @relation("TrustAndSafetyToSeoMetadata", fields: [seoId], references: [id])
-  seoId     String      @unique
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-
-  @@index([createdAt])
-  @@index([updatedAt])
-}
-
-model communityGuidelines {
-  id        String      @id @default(ulid())
-  title     String
-  description String?
-  image String?
-  content   String?     @db.Text
-  seo       SeoMetadata @relation("CommunityGuidelinesToSeoMetadata", fields: [seoId], references: [id])
-  seoId     String      @unique
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  
-  @@index([createdAt])
-  @@index([updatedAt])
-}
-
-model cancellationPolicy {
-  id        String      @id @default(ulid())
-  title     String
-  description String?
-  image String?
-  content   String?     @db.Text
-  seo       SeoMetadata @relation("CancellationPolicyToSeoMetadata", fields: [seoId], references: [id])
-  seoId     String      @unique
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-
-  @@index([createdAt])
-  @@index([updatedAt])
-}
-
-model career {
-  id        String      @id @default(ulid())
-  title     String
-  description String?
-  image String?
-  content   String?     @db.Text
-  seo       SeoMetadata @relation("CareerToSeoMetadata", fields: [seoId], references: [id])
-  seoId     String      @unique
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  
   @@index([createdAt])
   @@index([updatedAt])
 }
 
 model SeoMetadata {
-  id                 String           @id @default(ulid())
-  metaTitle          String
-  becomehost         becomehost?      @relation("BecomeHostToSeoMetadata")
-  privacyPolicy      privacyPolicy?   @relation("PrivacyPolicyToSeoMetadata")
-  termsAndService termsAndService?   @relation("TermsAndConditionsToSeoMetadata")
-  cancellationPolicy cancellationPolicy?   @relation("CancellationPolicyToSeoMetadata")
-  career career?   @relation("CareerToSeoMetadata")
-  trustandSafety trustandSafety?   @relation("TrustAndSafetyToSeoMetadata")
-  communityGuidelines communityGuidelines?   @relation("CommunityGuidelinesToSeoMetadata")
-  blog Blog?   @relation("BlogToSeoMetadata")
-  
-  metaDescription    String?
-  metaKeywords       String?
-  // Robots directives
-  robotsIndex        Boolean          @default(true) // noindex if false
-  robotsFollow       Boolean          @default(true) // nofollow if false
-  // Open Graph
-  ogTitle            String?
-  ogDescription      String?
-  ogImage            String?
-  ogType             String? // website, article, etc.
-  ogSiteName         String?
+  id          String       @id @default(ulid())
+  metaTitle   String
+  dynamicPage dynamicPage? @relation("DynamicPageToSeoMetadata")
+  blog        Blog?        @relation("BlogToSeoMetadata")
 
-  structuredData     Json? // JSON-LD schema.org
+  metaDescription String?
+  metaKeywords    String?
+  // Robots directives
+  robotsIndex     Boolean @default(true) // noindex if false
+  robotsFollow    Boolean @default(true) // nofollow if false
+  // Open Graph
+  ogTitle         String?
+  ogDescription   String?
+  ogImage         String?
+  ogType          String? // website, article, etc.
+  ogSiteName      String?
+
+  structuredData Json? // JSON-LD schema.org
   // Sitemap
-  changefreq         ChangeFrequency?
-  priority           Float?
+  changefreq     ChangeFrequency?
+  priority       Float?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
 }
 
 // ==================== Loyalty Program ====================
-
-enum RewardPointStatus {
-  ACTIVE
-  REDEEMED
-  EXPIRED
-  ADJUSTMENT
-}
 
 enum PointRuleAction {
   BOOKING
@@ -1561,15 +1024,15 @@ enum PointRuleAction {
 }
 
 model LoyaltyTier {
-  id            String   @id @default(cuid())
-  name          String   @unique
+  id            String        @id @default(cuid())
+  name          String        @unique
   priority      Int
   minPoints     Int
   durationDays  Int
   benefits      Json?
-  active        Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  active        Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
   // back-relation
   userLoyalties UserLoyalty[]
 
@@ -1577,18 +1040,18 @@ model LoyaltyTier {
 }
 
 model PointRule {
-  id              String           @id @default(cuid())
+  id              String          @id @default(cuid())
   action          PointRuleAction
   name            String
-  basePoints      Int              @default(0)
-  perUnit         Boolean          @default(false)
+  basePoints      Int             @default(0)
+  perUnit         Boolean         @default(false)
   unitAmount      Int?
   tierMultipliers Json?
-  expiryMonths    Int              @default(12)
-  active          Boolean          @default(true)
+  expiryMonths    Int             @default(12)
+  active          Boolean         @default(true)
   metadata        Json?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
   // back-relation
   rewards         RewardPoints[]
 
@@ -1613,6 +1076,13 @@ model RewardPoints {
 
   @@index([userId, status])
   @@index([expiresAt])
+}
+
+enum RewardPointStatus {
+  ACTIVE
+  REDEEMED
+  EXPIRED
+  ADJUSTED
 }
 
 model Redemption {
@@ -1659,3 +1129,17 @@ model ScheduledJobLog {
   payload Json?
 }
 
+model WishlistItem {
+  id        String   @id @default(ulid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([userId, eventId], name: "unique_wishlist_item")
+  @@index([userId])
+  @@index([eventId])
+  @@index([createdAt])
+  @@map("wishlist_items")
+}

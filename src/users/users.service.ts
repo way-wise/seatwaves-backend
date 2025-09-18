@@ -125,7 +125,9 @@ export class UsersService {
       if (cutoff) {
         // Users who have never logged in OR last login before cutoff
         const andList: Prisma.UserWhereInput[] = (where.AND as any) || [];
-        andList.push({ OR: [{ lastLoginAt: null }, { lastLoginAt: { lte: cutoff } }] });
+        andList.push({
+          OR: [{ lastLoginAt: null }, { lastLoginAt: { lte: cutoff } }],
+        });
         where.AND = andList;
       }
     }
@@ -406,7 +408,7 @@ export class UsersService {
     }
 
     const existingInfo = await this.prisma.businessInfo.findUnique({
-      where: { userId },
+      where: { sellerId: userId },
     });
 
     if (existingInfo) {
@@ -431,7 +433,7 @@ export class UsersService {
       data: {
         ...parseData.data,
         documents,
-        user: { connect: { id: userId } },
+        seller: { connect: { id: userId } },
       },
     });
 
@@ -470,7 +472,7 @@ export class UsersService {
     }
 
     const existingInfo = await this.prisma.businessInfo.findUnique({
-      where: { userId: id },
+      where: { sellerId: id },
     });
 
     if (!existingInfo) {
@@ -498,7 +500,7 @@ export class UsersService {
     }
 
     await this.prisma.businessInfo.update({
-      where: { userId: id },
+      where: { sellerId: id },
       data: {
         ...parseData.data,
         status: 'PENDING',
@@ -518,7 +520,7 @@ export class UsersService {
 
   async getBusinessInfo(id: string) {
     const businessInfo = await this.prisma.businessInfo.findUnique({
-      where: { userId: id },
+      where: { sellerId: id },
     });
 
     if (!businessInfo) {
@@ -565,9 +567,9 @@ export class UsersService {
 
     if (search) {
       where.OR = [
-        { user: { name: { contains: search, mode: 'insensitive' } } },
-        { user: { email: { contains: search, mode: 'insensitive' } } },
-        { user: { username: { contains: search, mode: 'insensitive' } } },
+        { seller: { name: { contains: search, mode: 'insensitive' } } },
+        { seller: { email: { contains: search, mode: 'insensitive' } } },
+        { seller: { username: { contains: search, mode: 'insensitive' } } },
       ];
     }
 
@@ -595,7 +597,7 @@ export class UsersService {
         orderBy: { [sortBy]: sortOrder },
         select: {
           id: true,
-          user: {
+          seller: {
             select: {
               id: true,
               name: true,
@@ -633,7 +635,7 @@ export class UsersService {
     const businessInfo = await this.prisma.businessInfo.findUnique({
       where: { id },
       include: {
-        user: {
+        seller: {
           select: {
             name: true,
             email: true,
@@ -659,8 +661,8 @@ export class UsersService {
         data: { status, isVerified: status === 'VERIFIED', message },
       }),
       this.prisma.user.update({
-        where: { id: businessInfo.userId },
-        data: { hostVerified: status === 'VERIFIED' },
+        where: { id: businessInfo.sellerId },
+        data: { isSellerVerified: status === 'VERIFIED' },
       }),
     ]);
 
@@ -674,44 +676,44 @@ export class UsersService {
       await this.prisma.userRoles.upsert({
         where: {
           userId_roleId: {
-            userId: businessInfo.userId,
+            userId: businessInfo.sellerId,
             roleId: hostRole.id,
           },
         },
         create: {
-          userId: businessInfo.userId,
+          userId: businessInfo.sellerId,
           roleId: hostRole.id,
         },
         update: {},
       });
 
       //notification send to user
-      this.notificationService.sendNotification(businessInfo.userId, {
+      this.notificationService.sendNotification(businessInfo.sellerId, {
         title: 'Host Verification',
-        message: `${businessInfo.user.name} has been approved as a host.`,
+        message: `${businessInfo.seller.name} has been approved as a host.`,
         type: 'NOTIFY',
       });
 
       //send email notification to user
       this.emailService.sendEmail(
-        businessInfo.user.email,
+        businessInfo.seller.email,
         'Host Verification',
-        `${businessInfo.user.name} has been approved as a host.`,
-        `<p>${businessInfo.user.name} has been approved as a host.</p> </br> <p>${message}</p>`,
+        `${businessInfo.seller.name} has been approved as a host.`,
+        `<p>${businessInfo.seller.name} has been approved as a host.</p> </br> <p>${message}</p>`,
       );
     } else {
       //notification send to user
-      this.notificationService.sendNotification(businessInfo.userId, {
+      this.notificationService.sendNotification(businessInfo.sellerId, {
         title: 'Host Verification',
-        message: `${businessInfo.user.name} has been rejected as a host.`,
+        message: `${businessInfo.seller.name} has been rejected as a host.`,
         type: 'NOTIFY',
       });
       //send email notification to user
       this.emailService.sendEmail(
-        businessInfo.user.email,
+        businessInfo.seller.email,
         'Host Verification',
-        `${businessInfo.user.name} has been rejected as a host.`,
-        `<p>${businessInfo.user.name} has been rejected as a host.</p> </br> <p>${message}</p>`,
+        `${businessInfo.seller.name} has been rejected as a host.`,
+        `<p>${businessInfo.seller.name} has been rejected as a host.</p> </br> <p>${message}</p>`,
       );
     }
 
