@@ -692,7 +692,6 @@ export class TransactionService {
         booking: {
           select: {
             id: true,
-            guestCount: true,
             price: true,
             discount: true,
             total: true,

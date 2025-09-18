@@ -463,10 +463,8 @@ export class StripeService {
         await tx.booking.create({
           data: {
             userId: userId,
-            guestCount: data.guestCount,
             status: BookingStatus.PENDING,
             seatId: data.eventId,
-            startDate: ctx.event.startTime,
             price: price,
             discount: appliedDiscount + discountAmount,
             paymentMethod: 'STRIPE',
@@ -699,13 +697,11 @@ export class StripeService {
         data: {
           userId: userId,
           seatId: data.eventId,
-          guestCount: data.guestCount,
           price: new Decimal(basePrice),
           discount: new Decimal(discountAmount + appliedDiscount),
           vat: new Decimal(vat),
           tax: new Decimal(tax),
           total: new Decimal(total),
-          startDate: event.startTime,
           paymentMethod: 'STRIPE',
           status: 'PENDING',
           transactions: {

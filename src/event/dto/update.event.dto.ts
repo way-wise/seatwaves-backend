@@ -1,17 +1,14 @@
 import { z } from 'zod';
 
 export const updateEventSchema = z.object({
-  title: z.string().min(1).optional(),
-  maxGuest: z.number().int().min(1).optional(),
-  maxperSlot: z.number().int().min(1).optional(),
-  notes: z.string().optional(),
-  activites: z.any().optional(),
-  maxparticipants: z.number().int().min(1).optional(),
-  duration: z.number().optional(),
-  // pricing
-  price: z.number().min(0).optional(),
-  discount: z.number().min(0).optional(),
-  discountType: z.enum(['PERCENTAGE', 'FIXED']).optional(),
+  title: z.string().min(3).max(100),
+  description: z.string().min(10).max(500).optional(),
+  eventId: z.string().min(1),
+  venue: z.string().min(3).max(100),
+  startTime: z.coerce.date(),
+  endTime: z.coerce.date(),
+  duration: z.number().min(1), // duration in minutes
+  sellerId: z.string().min(1),
+  categoryId: z.string().min(1),
+  metadata: z.record(z.any()).optional(),
 });
-
-export type UpdateEventDto = z.infer<typeof updateEventSchema>;

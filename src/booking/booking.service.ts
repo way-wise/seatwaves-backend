@@ -95,10 +95,9 @@ export class BookingService {
         orderBy: { [sortBy as string]: sortOrder },
         select: {
           id: true,
-          startDate: true,
           total: true,
           status: true,
-          guestCount: true,
+
           createdAt: true,
           updatedAt: true,
         },
@@ -197,10 +196,8 @@ export class BookingService {
         orderBy: { [sortBy as string]: sortOrder },
         select: {
           id: true,
-          startDate: true,
           total: true,
           status: true,
-          guestCount: true,
           price: true,
           createdAt: true,
           updatedAt: true,
@@ -256,10 +253,8 @@ export class BookingService {
         },
         select: {
           id: true,
-          startDate: true,
           total: true,
           status: true,
-          guestCount: true,
           price: true,
           createdAt: true,
           updatedAt: true,
@@ -454,13 +449,6 @@ export class BookingService {
     const cutoffHours = Number(
       this.configService.get('CANCELLATION_CUTOFF_HOURS') ?? 24,
     );
-    const cutoffTime = new Date(
-      (booking.startDate as Date).getTime() - cutoffHours * 60 * 60 * 1000,
-    );
-    if (now > cutoffTime)
-      throw new ForbiddenException(
-        `Cancellations are only allowed until ${cutoffHours} hours before the event starts`,
-      );
 
     if (booking.status === 'CANCELLED')
       throw new ForbiddenException('This booking is already cancelled');
@@ -712,9 +700,7 @@ Thank you.`;
           id: true,
           createdAt: true,
           updatedAt: true,
-          startDate: true,
           status: true,
-          guestCount: true,
           price: true,
           discount: true,
           vat: true,

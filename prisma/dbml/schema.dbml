@@ -186,6 +186,7 @@ Table events {
   startTime DateTime [not null]
   endTime DateTime [not null]
   duration Int
+  image String
   metaData Json
   status EventStatus [not null, default: 'ONGOING']
   createdAt DateTime [default: `now()`, not null]
@@ -205,8 +206,13 @@ Table seats {
   id String [pk]
   seatId String [not null]
   eventId String [not null]
+  price Decimal [not null]
+  discount Decimal [not null, default: 0]
+  discountType DiscountType [not null, default: 'FIXED']
   row String
   number Int
+  section String
+  metaData Json
   isBooked Boolean [not null, default: false]
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [not null]
@@ -224,8 +230,6 @@ Table bookings {
   userId String [not null]
   seatId String [not null]
   seat seats [not null]
-  startDate DateTime [not null]
-  guestCount Int [not null, default: 1]
   price Decimal [not null]
   discount Decimal [not null]
   vat Decimal [not null]

@@ -450,7 +450,6 @@ export class WebhookService {
             select: {
               id: true,
               status: true,
-              guestCount: true,
               seat: {
                 select: {
                   id: true,

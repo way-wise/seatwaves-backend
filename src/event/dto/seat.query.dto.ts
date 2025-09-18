@@ -1,14 +1,12 @@
 import { z } from 'zod';
+import { eventQuerySchema } from './event.query.dto';
 
-export const eventQuerySchema = z.object({
+export const seatQuerySchema = z.object({
   page: z.string().optional().default('1'),
   limit: z.string().optional().default('10'),
   cursor: z.string().optional(),
   search: z.string().optional(),
-  sortBy: z
-    .enum(['createdAt', 'updatedAt', 'guestCount', 'total', 'status'])
-    .optional()
-    .default('createdAt'),
+  sortBy: z.enum(['createdAt', 'updatedAt']).optional().default('createdAt'),
   sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
 });
 

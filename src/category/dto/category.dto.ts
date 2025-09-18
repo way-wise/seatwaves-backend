@@ -5,6 +5,7 @@ export const createCategorySchema = z.object({
   icon: z.string().optional(),
   status: z.enum(['ACTIVE', 'INACTIVE']).optional().default('ACTIVE'),
   slug: z.string().optional(),
+  parentId: z.string().optional().nullable(),
 });
 
 // export const updateCategorySchema = createCategorySchema.partial();

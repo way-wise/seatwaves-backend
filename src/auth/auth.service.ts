@@ -1,4 +1,5 @@
 import {
+  ForbiddenException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -341,7 +342,7 @@ export class AuthService {
       if (user.blockedUntil && user.blockedUntil > new Date()) {
         const remainingMs = user.blockedUntil.getTime() - new Date().getTime();
         const remainingMin = Math.ceil(remainingMs / 60000);
-        throw new UnauthorizedException(
+        throw new ForbiddenException(
           `This Account is blocked. Try again in ${remainingMin} minutes.`,
         );
       } else {
