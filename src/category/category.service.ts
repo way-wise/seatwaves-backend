@@ -1,15 +1,14 @@
 import {
   Injectable,
-  InternalServerErrorException,
   Logger,
   NotAcceptableException,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { CreateCategoryDto, createCategorySchema } from './dto/category.dto';
-import { updateCategoryDto, updateCategorySchema } from './dto/update.dto';
 import { UploadService } from 'src/upload/upload.service';
+import { CreateCategoryDto, createCategorySchema } from './dto/category.dto';
 import { queryCategorySchema } from './dto/query.dto';
+import { updateCategoryDto, updateCategorySchema } from './dto/update.dto';
 
 @Injectable()
 export class CategoryService {
@@ -107,12 +106,36 @@ export class CategoryService {
       data.icon = uploadResult.Key; // or `uploadResult.Location` if S3
     }
 
+    if (data.slug) {
+      const existsSlug = await this.prisma.category.findUnique({
+        where: { slug: data.slug },
+      });
+
+      if (existsSlug && existsSlug.id !== id) {
+        throw new NotAcceptableException('Slug already exists');
+      }
+    }
+
+    if (data.parentId) {
+      if (data.parentId === id) {
+        throw new NotAcceptableException('Category cannot be its own parent');
+      }
+      const parentCategory = await this.prisma.category.findUnique({
+        where: { id: data.parentId },
+      });
+      if (!parentCategory) {
+        throw new NotAcceptableException('Parent category not found');
+      }
+    }
+
     const update = await this.prisma.category.update({
       where: { id },
       data: {
         name: parsebody.data.name,
         icon: data.icon,
         status: parsebody.data.status,
+        parentId: parsebody.data.parentId,
+        slug: data.slug ? data.slug : category.slug,
       },
     });
     this.logger.log(`Updated category with id: ${category.id}`);
@@ -158,18 +181,32 @@ export class CategoryService {
       this.prisma.category.count({ where }),
     ]);
 
-    const hasNext = skip + parseInt(limit) < total;
-    const hasPrev = skip > 0;
     return {
       status: true,
       data: data,
-      total,
-      page: parseInt(page),
-      limit: parseInt(limit),
-      totalPages: Math.ceil(total / parseInt(limit)),
-      hasNext,
-      hasPrev,
+      meta: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(total / parseInt(limit)),
+      },
     };
+  }
+
+  //find single category with children
+  async findSingleCategoryBySlug(slug: string) {
+    const category = await this.prisma.category.findUnique({
+      where: { slug },
+      include: {
+        children: true,
+      },
+    });
+
+    if (!category) {
+      throw new NotFoundException('Category not found.');
+    }
+
+    return { status: true, data: category };
   }
 
   async findAll() {
@@ -185,16 +222,4 @@ export class CategoryService {
     });
     return { status: true, data: categories };
   }
-
-  async findOne(id: string) {
-    const category = await this.prisma.category.findUnique({ where: { id } });
-
-    if (!category) {
-      throw new NotFoundException('Category not found.');
-    }
-
-    return { status: true, data: category };
-  }
-
-  //not used category remove
 }

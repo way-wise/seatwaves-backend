@@ -63,9 +63,9 @@ export class CategoryController {
     return this.categoryService.findAll();
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.categoryService.findOne(id);
+  @Get('/slug/:slug')
+  findSingleCategoryBySlug(@Param('slug') slug: string) {
+    return this.categoryService.findSingleCategoryBySlug(slug);
   }
 
   // @UseGuards(AuthGuard('jwt'), PermissionsGuard)
