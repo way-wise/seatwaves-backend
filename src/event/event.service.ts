@@ -10,6 +10,7 @@ import { updateEventSchema } from './dto/update.event.dto';
 import { updateSeatSchema } from './dto/update.seat.dto';
 import { eventQuerySchema } from './dto/event.query.dto';
 import { seatQuerySchema } from './dto/seat.query.dto';
+import { z } from 'zod';
 
 @Injectable()
 export class EventService {
@@ -232,7 +233,7 @@ export class EventService {
         endTime: parsedData.data.endTime,
         duration: parsedData.data.duration,
         sellerId: parsedData.data.sellerId,
-        metaData: parsedData.data.metadata,
+        metadata: parsedData.data.metadata,
         categoryId: parsedData.data.categoryId,
       },
     });
@@ -264,6 +265,117 @@ export class EventService {
     };
   }
 
+  //create events bulk
+  async createEventsBulk(data: any) {
+    // Accept either an array or an object with { events: [...] }
+    const eventsInput: any[] | undefined = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.events)
+        ? data.events
+        : undefined;
+
+    if (!Array.isArray(eventsInput)) {
+      this.logger.error('Validation failed', 'Expected array of events');
+      throw new NotAcceptableException('Expected array of events');
+    }
+
+    console.log(eventsInput);
+
+    const EventArraySchema = z.array(createEventScehema);
+    // const parsedArray = EventArraySchema.safeParse(eventsInput);
+    // if (!parsedArray.success) {
+    //   this.logger.error('Validation failed', parsedArray.error);
+    //   throw new NotAcceptableException('Invalid event data');
+    // }
+
+    const summary = {
+      created: 0,
+      updatedExisting: 0,
+      seatsCreated: 0,
+      seatsAddedToExisting: 0,
+      skipped: 0,
+      eventIds: [] as string[],
+      errors: [] as { index: number; message: string }[],
+    };
+
+    for (let i = 0; i < eventsInput.length; i++) {
+      const ev = eventsInput[i];
+      try {
+        // Check existing by external eventId
+        const existing = await this.prisma.event.findUnique({
+          where: { eventId: ev.eventId },
+        });
+
+        if (existing) {
+          // If seats provided, add them
+          if (ev.seats && ev.seats.length > 0) {
+            const seatsToCreate = ev.seats.map((seat) => ({
+              ...seat,
+              metaData: ev.metaData,
+              eventId: existing.id,
+            }));
+            for (let j = 0; j < seatsToCreate.length; j += this.CHUNK_SIZE) {
+              const chunk = seatsToCreate.slice(j, j + this.CHUNK_SIZE);
+              await this.prisma.seat.createMany({
+                data: chunk,
+                skipDuplicates: true,
+              });
+            }
+            summary.seatsAddedToExisting += ev.seats.length;
+          }
+          summary.updatedExisting += 1;
+          continue;
+        }
+
+        // Create new event
+        const newEvent = await this.prisma.event.create({
+          data: {
+            title: ev.title,
+            description: ev.description,
+            eventId: ev.eventId,
+            venue: ev.venue,
+            startTime: ev.startTime,
+            endTime: ev.endTime,
+            duration: ev.duration,
+            sellerId: ev.sellerId,
+            metadata: ev.metadata,
+            categoryId: ev.categoryId,
+          },
+        });
+        summary.created += 1;
+        summary.eventIds.push(newEvent.id);
+
+        if (ev.seats && ev.seats.length > 0) {
+          const seatsToCreate = ev.seats.map((seat) => ({
+            ...seat,
+            eventId: newEvent.id,
+          }));
+          for (let j = 0; j < seatsToCreate.length; j += this.CHUNK_SIZE) {
+            const chunk = seatsToCreate.slice(j, j + this.CHUNK_SIZE);
+            await this.prisma.seat.createMany({
+              data: chunk,
+              skipDuplicates: true,
+            });
+          }
+          summary.seatsCreated += ev.seats.length;
+        }
+      } catch (e: any) {
+        this.logger.error(`Failed to process event at index ${i}`, e);
+        summary.skipped += 1;
+        summary.errors.push({
+          index: i,
+          message: e?.message || 'Unknown error',
+        });
+      }
+    }
+
+    return {
+      status: true,
+      message: 'Bulk events processed',
+      summary,
+    };
+  }
+
   // Added Seat
   async addSeatToEvent(eventId: string, seatData) {
     const parsedData = SeatSchema.safeParse(seatData);
@@ -287,7 +399,7 @@ export class EventService {
         row: parsedData.data.row,
         number: parsedData.data.number,
         section: parsedData.data.section,
-        metaData: parsedData.data.metadata,
+        metadata: parsedData.data.metadata,
         price: parsedData.data.price,
         discount: parsedData.data.discount,
         discountType: parsedData.data.discountType,
@@ -420,17 +532,27 @@ export class EventService {
         skip: offset,
         take: limitInt,
         cursor: cursor ? { id: cursor } : undefined,
+
         include: {
+          _count: {
+            select: {
+              seats: true,
+              reviews: true,
+            },
+          },
           category: true,
-          seller: true,
-          seats: true,
+          seller: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              avatar: true,
+            },
+          },
         },
       }),
       this.prisma.event.count({ where }),
     ]);
-
-    const nextCursor =
-      events.length === limitInt ? events[events.length - 1].id : null;
 
     return {
       status: true,
@@ -439,7 +561,6 @@ export class EventService {
         total,
         page: pageInt,
         limit: limitInt,
-        nextCursor,
       },
     };
   }

@@ -274,7 +274,7 @@ model Event {
   endTime     DateTime
   duration    Int? // in minutes
   image       String?
-  metaData    Json?
+  metadata    Json?
 
   status       EventStatus    @default(ONGOING)
   createdAt    DateTime       @default(now())
@@ -310,7 +310,7 @@ model Seat {
   row          String?
   number       Int?
   section      String?
-  metaData     Json?
+  metadata     Json?
   isBooked     Boolean      @default(false)
 
   createdAt DateTime  @default(now())

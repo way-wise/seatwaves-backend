@@ -50,6 +50,7 @@ import {
   createContactInfoSchema,
   updateContactInfoSchema,
 } from './dto/contact.dto';
+import { z } from 'zod';
 // simple local slug generator to avoid extra deps
 const makeSlug = (input: string) =>
   input
@@ -473,274 +474,6 @@ export class ContentService {
     return { status: true, data };
   }
 
-  // ===== Simple SEO Pages (privacyPolicy, termsAndService, trustandSafety, communityGuidelines, cancellationPolicy, career) =====
-  private async createSimplePage(
-    model:
-      | 'privacyPolicy'
-      | 'termsAndService'
-      | 'trustandSafety'
-      | 'communityGuidelines'
-      | 'cancellationPolicy'
-      | 'career',
-    raw: CreateSimplePageDto,
-    file?: Express.Multer.File,
-  ) {
-    const normalized: any =
-      raw && typeof (raw as any).seo === 'string'
-        ? { ...raw, seo: safeJsonParse((raw as any).seo) }
-        : raw;
-    const parsed = createSimplePageSchema.safeParse(normalized);
-    if (!parsed.success) throw new NotAcceptableException(parsed.error.errors);
-
-    let ogKey: string | undefined;
-    if (file) {
-      const upload = await this.uploadService.uploadFile(file, 'seo');
-      ogKey = upload.Key;
-    }
-
-    const seo = await this.prisma.seoMetadata.create({
-      data: { ...parsed.data.seo, ogImage: ogKey ?? parsed.data.seo?.ogImage },
-    });
-
-    // ensure single latest record per page
-    const created = await (this.prisma as any)[model].create({
-      data: {
-        title: parsed.data.title,
-        description: parsed.data.description,
-        content: parsed.data.content,
-        image: ogKey,
-        seoId: seo.id,
-      },
-      include: { seo: true },
-    });
-    return {
-      status: true,
-      data: created,
-      message: `${model} created successfully.`,
-    };
-  }
-
-  private async updateSimplePage(
-    model:
-      | 'privacyPolicy'
-      | 'termsAndService'
-      | 'trustandSafety'
-      | 'communityGuidelines'
-      | 'cancellationPolicy'
-      | 'career',
-    id: string,
-    raw: UpdateSimplePageDto,
-    file?: Express.Multer.File,
-  ) {
-    const normalized: any =
-      raw && typeof (raw as any).seo === 'string'
-        ? { ...raw, seo: safeJsonParse((raw as any).seo) }
-        : raw;
-    const parsed = updateSimplePageSchema.safeParse(normalized);
-    if (!parsed.success) throw new NotAcceptableException(parsed.error.errors);
-
-    const existing = await (this.prisma as any)[model].findUnique({
-      where: { id },
-    });
-    if (!existing) throw new NotFoundException(`${model} not found`);
-    let ogKeyToSave = parsed.data.seo?.ogImage;
-
-    if (parsed.data.seo || file) {
-      if (file) {
-        const existingSeo = await this.prisma.seoMetadata.findUnique({
-          where: { id: existing.seoId },
-        });
-        if (existingSeo?.ogImage)
-          await this.uploadService.deleteFile(existingSeo.ogImage);
-        const upload = await this.uploadService.uploadFile(file, 'seo');
-        ogKeyToSave = upload.Key;
-      }
-      await this.prisma.seoMetadata.update({
-        where: { id: existing.seoId },
-        data: { ...parsed.data.seo, ogImage: ogKeyToSave },
-      });
-    }
-
-    const updated = await (this.prisma as any)[model].update({
-      where: { id },
-      data: {
-        title: parsed.data.title,
-        description: parsed.data.description,
-        content: parsed.data.content,
-        image: ogKeyToSave,
-      },
-      include: { seo: true },
-    });
-    return {
-      status: true,
-      data: updated,
-      message: `${model} updated successfully.`,
-    };
-  }
-
-  private async getSimplePageAdmin(
-    model:
-      | 'privacyPolicy'
-      | 'termsAndService'
-      | 'trustandSafety'
-      | 'communityGuidelines'
-      | 'cancellationPolicy'
-      | 'career',
-  ) {
-    const data = await (this.prisma as any)[model].findFirst({
-      include: { seo: true },
-      orderBy: { updatedAt: 'desc' },
-    });
-    return { status: true, data };
-  }
-
-  private async getSimplePagePublic(
-    model:
-      | 'privacyPolicy'
-      | 'termsAndService'
-      | 'trustandSafety'
-      | 'communityGuidelines'
-      | 'cancellationPolicy'
-      | 'career',
-  ) {
-    const data = await (this.prisma as any)[model].findFirst({
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        content: true,
-        image: true,
-        seo: {
-          select: {
-            ogImage: true,
-            metaDescription: true,
-            metaTitle: true,
-            ogSiteName: true,
-            ogType: true,
-            metaKeywords: true,
-            structuredData: true,
-          },
-        },
-      },
-      orderBy: { updatedAt: 'desc' },
-    });
-    return { status: true, data };
-  }
-
-  // Privacy Policy
-  createPrivacyPolicy(data: CreateSimplePageDto, file?: Express.Multer.File) {
-    return this.createSimplePage('privacyPolicy', data, file);
-  }
-  updatePrivacyPolicy(
-    id: string,
-    data: UpdateSimplePageDto,
-    file?: Express.Multer.File,
-  ) {
-    return this.updateSimplePage('privacyPolicy', id, data, file);
-  }
-  getPrivacyPolicyAdmin() {
-    return this.getSimplePageAdmin('privacyPolicy');
-  }
-  getPrivacyPolicy() {
-    return this.getSimplePagePublic('privacyPolicy');
-  }
-
-  // Terms and Service
-  createTermsAndService(data: CreateSimplePageDto, file?: Express.Multer.File) {
-    return this.createSimplePage('termsAndService', data, file);
-  }
-  updateTermsAndService(
-    id: string,
-    data: UpdateSimplePageDto,
-    file?: Express.Multer.File,
-  ) {
-    return this.updateSimplePage('termsAndService', id, data, file);
-  }
-  getTermsAndServiceAdmin() {
-    return this.getSimplePageAdmin('termsAndService');
-  }
-  getTermsAndService() {
-    return this.getSimplePagePublic('termsAndService');
-  }
-
-  // Trust and Safety
-  createTrustAndSafety(data: CreateSimplePageDto, file?: Express.Multer.File) {
-    return this.createSimplePage('trustandSafety', data, file);
-  }
-  updateTrustAndSafety(
-    id: string,
-    data: UpdateSimplePageDto,
-    file?: Express.Multer.File,
-  ) {
-    return this.updateSimplePage('trustandSafety', id, data, file);
-  }
-  getTrustAndSafetyAdmin() {
-    return this.getSimplePageAdmin('trustandSafety');
-  }
-  getTrustAndSafety() {
-    return this.getSimplePagePublic('trustandSafety');
-  }
-
-  // Community Guidelines
-  createCommunityGuidelines(
-    data: CreateSimplePageDto,
-    file?: Express.Multer.File,
-  ) {
-    return this.createSimplePage('communityGuidelines', data, file);
-  }
-  updateCommunityGuidelines(
-    id: string,
-    data: UpdateSimplePageDto,
-    file?: Express.Multer.File,
-  ) {
-    return this.updateSimplePage('communityGuidelines', id, data, file);
-  }
-  getCommunityGuidelinesAdmin() {
-    return this.getSimplePageAdmin('communityGuidelines');
-  }
-  getCommunityGuidelines() {
-    return this.getSimplePagePublic('communityGuidelines');
-  }
-
-  // Cancellation Policy
-  createCancellationPolicy(
-    data: CreateSimplePageDto,
-    file?: Express.Multer.File,
-  ) {
-    return this.createSimplePage('cancellationPolicy', data, file);
-  }
-  updateCancellationPolicy(
-    id: string,
-    data: UpdateSimplePageDto,
-    file?: Express.Multer.File,
-  ) {
-    return this.updateSimplePage('cancellationPolicy', id, data, file);
-  }
-  getCancellationPolicyAdmin() {
-    return this.getSimplePageAdmin('cancellationPolicy');
-  }
-  getCancellationPolicy() {
-    return this.getSimplePagePublic('cancellationPolicy');
-  }
-
-  // Career
-  createCareer(data: CreateSimplePageDto, file?: Express.Multer.File) {
-    return this.createSimplePage('career', data, file);
-  }
-  updateCareer(
-    id: string,
-    data: UpdateSimplePageDto,
-    file?: Express.Multer.File,
-  ) {
-    return this.updateSimplePage('career', id, data, file);
-  }
-  getCareerAdmin() {
-    return this.getSimplePageAdmin('career');
-  }
-  getCareer() {
-    return this.getSimplePagePublic('career');
-  }
-
   // ===== Banner (no SEO) =====
   async createBanner(data: CreateBannerDto, file?: Express.Multer.File) {
     const parsed = createBannerSchema.safeParse(data);
@@ -819,6 +552,182 @@ export class ContentService {
       status: true,
       data: deleted,
       message: 'card deleted successfully.',
+    };
+  }
+
+  // ===== Dynamic Page (with SEO) =====
+  private dynamicPageCreateSchema = z.object({
+    title: z.string().min(1),
+    slug: z.string().min(1),
+    description: z.string().optional(),
+    content: z.string().optional(),
+    image: z.string().optional(),
+    seo: z
+      .object({
+        metaTitle: z.string().min(1),
+        metaDescription: z.string().optional(),
+        metaKeywords: z.string().optional(),
+        robotsIndex: z.boolean().optional(),
+        robotsFollow: z.boolean().optional(),
+        ogTitle: z.string().optional(),
+        ogDescription: z.string().optional(),
+        ogImage: z.string().optional(),
+        ogType: z.string().optional(),
+        ogSiteName: z.string().optional(),
+        structuredData: z.any().optional(),
+        changefreq: z
+          .enum([
+            'ALWAYS',
+            'HOURLY',
+            'DAILY',
+            'WEEKLY',
+            'MONTHLY',
+            'YEARLY',
+            'NEVER',
+          ])
+          .optional(),
+        priority: z.number().optional(),
+      })
+      .strict(),
+  });
+
+  private dynamicPageUpdateSchema = z.object({
+    title: z.string().min(1).optional(),
+    description: z.string().optional(),
+    content: z.string().optional(),
+    image: z.string().optional(),
+    seo: this.dynamicPageCreateSchema.shape.seo.partial().optional(),
+  });
+
+  async createDynamicPage(
+    raw: any,
+    files?: { image?: Express.Multer.File[]; ogImage?: Express.Multer.File[] },
+  ) {
+    const normalized: any =
+      raw && typeof raw.seo === 'string'
+        ? { ...raw, seo: safeJsonParse(raw.seo) }
+        : raw;
+
+    const parsed = this.dynamicPageCreateSchema.safeParse(normalized);
+    if (!parsed.success) throw new NotAcceptableException(parsed.error.errors);
+
+    // normalize slug
+    const slug = makeSlug(parsed.data.slug);
+
+    // prevent duplicate
+    const exists = await this.prisma.dynamicPage.findUnique({
+      where: { slug },
+    });
+    if (exists) throw new NotAcceptableException('Slug already exists');
+
+    // handle uploads
+    let pageImageKey: string | undefined = parsed.data.image;
+    const imageFile = files?.image?.[0];
+    if (imageFile) {
+      const upload = await this.uploadService.uploadFile(imageFile, 'pages');
+      pageImageKey = upload.Key;
+    }
+
+    let ogKey: string | undefined = parsed.data.seo.ogImage;
+    const ogFile = files?.ogImage?.[0];
+    if (ogFile) {
+      const upload = await this.uploadService.uploadFile(ogFile, 'seo');
+      ogKey = upload.Key;
+    }
+
+    const seo = await this.prisma.seoMetadata.create({
+      data: {
+        ...parsed.data.seo,
+        ogImage: ogKey,
+      },
+    });
+
+    const created = await this.prisma.dynamicPage.create({
+      data: {
+        title: parsed.data.title,
+        slug,
+        description: parsed.data.description,
+        content: parsed.data.content,
+        image: pageImageKey,
+        seoId: seo.id,
+      },
+      include: { seo: true },
+    });
+
+    return {
+      status: true,
+      data: created,
+      message: 'Dynamic page created successfully.',
+    };
+  }
+
+  async updateDynamicPageBySlug(
+    slugParam: string,
+    raw: any,
+    files?: { image?: Express.Multer.File[]; ogImage?: Express.Multer.File[] },
+  ) {
+    const normalized: any =
+      raw && typeof raw.seo === 'string'
+        ? { ...raw, seo: safeJsonParse(raw.seo) }
+        : raw;
+    const parsed = this.dynamicPageUpdateSchema.safeParse(normalized);
+    if (!parsed.success) throw new NotAcceptableException(parsed.error.errors);
+
+    const slug = makeSlug(slugParam);
+    const existing = await this.prisma.dynamicPage.findUnique({
+      where: { slug },
+      include: { seo: true },
+    });
+    if (!existing) throw new NotFoundException('Dynamic page not found');
+
+    // handle page image
+    let pageImageKey: string | undefined = existing.image ?? undefined;
+    const imageFile = files?.image?.[0];
+    if (imageFile) {
+      if (pageImageKey) await this.uploadService.deleteFile(pageImageKey);
+      const upload = await this.uploadService.uploadFile(imageFile, 'pages');
+      pageImageKey = upload.Key;
+    }
+
+    // handle SEO og image
+    let ogKey: string | undefined =
+      parsed.data.seo?.ogImage ?? existing.seo?.ogImage ?? undefined;
+    const ogFile = files?.ogImage?.[0];
+    if (ogFile) {
+      if (existing.seo?.ogImage)
+        await this.uploadService.deleteFile(existing.seo.ogImage);
+      const upload = await this.uploadService.uploadFile(ogFile, 'seo');
+      ogKey = upload.Key;
+    }
+
+    if (parsed.data.seo || ogFile) {
+      await this.prisma.seoMetadata.update({
+        where: { id: existing.seoId },
+        data: { ...(parsed.data.seo || {}), ogImage: ogKey },
+      });
+    }
+
+    const updated = await this.prisma.dynamicPage.update({
+      where: { slug },
+      data: {
+        ...(parsed.data.title !== undefined
+          ? { title: parsed.data.title }
+          : {}),
+        ...(parsed.data.description !== undefined
+          ? { description: parsed.data.description }
+          : {}),
+        ...(parsed.data.content !== undefined
+          ? { content: parsed.data.content }
+          : {}),
+        image: pageImageKey,
+      },
+      include: { seo: true },
+    });
+
+    return {
+      status: true,
+      data: updated,
+      message: 'Dynamic page updated successfully.',
     };
   }
 }

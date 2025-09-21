@@ -455,7 +455,7 @@ export class AuthService {
     const refreshToken = await this.generateRefreshToken(user.id, user.status);
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === 'production' ? true : false,
       domain:
         process.env.NODE_ENV === 'production' ? 'waywisetech.com' : 'localhost',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
@@ -463,7 +463,7 @@ export class AuthService {
     });
     res.cookie('accessToken', accessToken, {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === 'production' ? true : false,
       domain:
         process.env.NODE_ENV === 'production' ? 'waywisetech.com' : 'localhost',
       maxAge: 24 * 60 * 60 * 1000,

@@ -169,213 +169,6 @@ export class ContentController {
     return this.contentService.updateTestimonial(id, body, file);
   }
 
-  // ===== Privacy Policy =====
-  @Get('privacypolicy')
-  getPrivacyPolicyAdmin() {
-    return this.contentService.getPrivacyPolicyAdmin();
-  }
-
-  @Get('/privacypolicy/public')
-  getPrivacyPolicyPublic() {
-    return this.contentService.getPrivacyPolicy();
-  }
-
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @Permissions('content.create')
-  @Post('privacypolicy')
-  @UseInterceptors(FileInterceptor('ogImage'))
-  createPrivacyPolicy(
-    @UploadedFile() file: Express.Multer.File,
-    @Body() body: any,
-  ) {
-    return this.contentService.createPrivacyPolicy(body, file);
-  }
-
-  @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @Permissions('content.update')
-  @Put('privacypolicy/:id')
-  @UseInterceptors(FileInterceptor('ogImage'))
-  updatePrivacyPolicy(
-    @Param('id') id: string,
-    @UploadedFile() file: Express.Multer.File,
-    @Body() body: any,
-  ) {
-    return this.contentService.updatePrivacyPolicy(id, body, file);
-  }
-
-  // ===== Terms and Service =====
-  @Get('termsandservice')
-  getTermsAndServiceAdmin() {
-    return this.contentService.getTermsAndServiceAdmin();
-  }
-
-  @Get('/termsandservice/public')
-  getTermsAndServicePublic() {
-    return this.contentService.getTermsAndService();
-  }
-
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @Permissions('content.create')
-  @Post('termsandservice')
-  @UseInterceptors(FileInterceptor('ogImage'))
-  createTermsAndService(
-    @UploadedFile() file: Express.Multer.File,
-    @Body() body: any,
-  ) {
-    return this.contentService.createTermsAndService(body, file);
-  }
-
-  @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @Permissions('content.update')
-  @Put('termsandservice/:id')
-  @UseInterceptors(FileInterceptor('ogImage'))
-  updateTermsAndService(
-    @Param('id') id: string,
-    @UploadedFile() file: Express.Multer.File,
-    @Body() body: any,
-  ) {
-    return this.contentService.updateTermsAndService(id, body, file);
-  }
-
-  // ===== Trust and Safety =====
-  @Get('trustandsafety')
-  getTrustAndSafetyAdmin() {
-    return this.contentService.getTrustAndSafetyAdmin();
-  }
-
-  @Get('/trustandsafety/public')
-  getTrustAndSafetyPublic() {
-    return this.contentService.getTrustAndSafety();
-  }
-
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @Permissions('content.create')
-  @Post('trustandsafety')
-  @UseInterceptors(FileInterceptor('ogImage'))
-  createTrustAndSafety(
-    @UploadedFile() file: Express.Multer.File,
-    @Body() body: any,
-  ) {
-    return this.contentService.createTrustAndSafety(body, file);
-  }
-
-  @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @Permissions('content.update')
-  @Put('trustandsafety/:id')
-  @UseInterceptors(FileInterceptor('ogImage'))
-  updateTrustAndSafety(
-    @Param('id') id: string,
-    @UploadedFile() file: Express.Multer.File,
-    @Body() body: any,
-  ) {
-    return this.contentService.updateTrustAndSafety(id, body, file);
-  }
-
-  // ===== Community Guidelines =====
-  @Get('communityguidelines')
-  getCommunityGuidelinesAdmin() {
-    return this.contentService.getCommunityGuidelinesAdmin();
-  }
-
-  @Get('/communityguidelines/public')
-  getCommunityGuidelinesPublic() {
-    return this.contentService.getCommunityGuidelines();
-  }
-
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @Permissions('content.create')
-  @Post('communityguidelines')
-  @UseInterceptors(FileInterceptor('ogImage'))
-  createCommunityGuidelines(
-    @UploadedFile() file: Express.Multer.File,
-    @Body() body: any,
-  ) {
-    return this.contentService.createCommunityGuidelines(body, file);
-  }
-
-  @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @Permissions('content.update')
-  @Put('communityguidelines/:id')
-  @UseInterceptors(FileInterceptor('ogImage'))
-  updateCommunityGuidelines(
-    @Param('id') id: string,
-    @UploadedFile() file: Express.Multer.File,
-    @Body() body: any,
-  ) {
-    return this.contentService.updateCommunityGuidelines(id, body, file);
-  }
-
-  // ===== Cancellation Policy =====
-  @Get('cancellationpolicy')
-  getCancellationPolicyAdmin() {
-    return this.contentService.getCancellationPolicyAdmin();
-  }
-
-  @Get('/cancellationpolicy/public')
-  getCancellationPolicyPublic() {
-    return this.contentService.getCancellationPolicy();
-  }
-
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @Permissions('content.create')
-  @Post('cancellationpolicy')
-  @UseInterceptors(FileInterceptor('ogImage'))
-  createCancellationPolicy(
-    @UploadedFile() file: Express.Multer.File,
-    @Body() body: any,
-  ) {
-    return this.contentService.createCancellationPolicy(body, file);
-  }
-
-  @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @Permissions('content.update')
-  @Put('cancellationpolicy/:id')
-  @UseInterceptors(FileInterceptor('ogImage'))
-  updateCancellationPolicy(
-    @Param('id') id: string,
-    @UploadedFile() file: Express.Multer.File,
-    @Body() body: any,
-  ) {
-    return this.contentService.updateCancellationPolicy(id, body, file);
-  }
-
-  // ===== Career =====
-  @Get('career')
-  getCareerAdmin() {
-    return this.contentService.getCareerAdmin();
-  }
-
-  @Get('/career/public')
-  getCareerPublic() {
-    return this.contentService.getCareer();
-  }
-
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @Permissions('content.create')
-  @Post('career')
-  @UseInterceptors(FileInterceptor('ogImage'))
-  createCareer(@UploadedFile() file: Express.Multer.File, @Body() body: any) {
-    return this.contentService.createCareer(body, file);
-  }
-
-  @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @Permissions('content.update')
-  @Put('career/:id')
-  @UseInterceptors(FileInterceptor('ogImage'))
-  updateCareer(
-    @Param('id') id: string,
-    @UploadedFile() file: Express.Multer.File,
-    @Body() body: any,
-  ) {
-    return this.contentService.updateCareer(id, body, file);
-  }
-
   // ===== Banner =====
   @Get('banners')
   getBannersAdmin() {
@@ -416,6 +209,43 @@ export class ContentController {
   @Delete('card/:id')
   deleteCard(@Param('id') id: string) {
     return this.contentService.deleteCard(id);
+  }
+
+  // ===== Dynamic Page =====
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @Permissions('content.create')
+  @Post('dynamic-page')
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      { name: 'image', maxCount: 1 },
+      { name: 'ogImage', maxCount: 1 },
+    ]),
+  )
+  createDynamicPage(
+    @UploadedFiles()
+    files: { image?: Express.Multer.File[]; ogImage?: Express.Multer.File[] },
+    @Body() body: any,
+  ) {
+    return this.contentService.createDynamicPage(body, files);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @Permissions('content.update')
+  @Put('dynamic-page/:slug')
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      { name: 'image', maxCount: 1 },
+      { name: 'ogImage', maxCount: 1 },
+    ]),
+  )
+  updateDynamicPageBySlug(
+    @Param('slug') slug: string,
+    @UploadedFiles()
+    files: { image?: Express.Multer.File[]; ogImage?: Express.Multer.File[] },
+    @Body() body: any,
+  ) {
+    return this.contentService.updateDynamicPageBySlug(slug, body, files);
   }
 
   // //Card Create

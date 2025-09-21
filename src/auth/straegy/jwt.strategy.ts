@@ -26,6 +26,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     role: string;
     status: string;
   }) {
+    console.log('JWT Payload', payload);
     const user = await this.prisma.user.findUnique({
       where: { id: payload.userId },
     });

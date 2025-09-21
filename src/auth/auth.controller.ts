@@ -66,7 +66,7 @@ export class AuthController {
   @Get('me')
   @UseGuards(AuthGuard('jwt'))
   me(@Req() req) {
-    // console.log('Request User', req);
+    console.log('Request User', req);
     if (!req.user) {
       throw new UnauthorizedException('User not found');
     }

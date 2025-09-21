@@ -14,7 +14,7 @@ import { PermissionsGuard } from 'src/common/guards/permissions.guard';
 import { EventService } from './event.service';
 
 @Controller('events')
-@UseGuards(AuthGuard('jwt'), PermissionsGuard)
+// @UseGuards(AuthGuard('jwt'), PermissionsGuard)
 export class EventController {
   constructor(private readonly eventService: EventService) {}
 
@@ -30,7 +30,7 @@ export class EventController {
   }
 
   @Get('/admin')
-  @Permissions('read:event')
+  // @Permissions('read:event')
   getEventsAdmin(@Query() query) {
     return this.eventService.getAllEventsAdmin(query);
   }
@@ -41,11 +41,17 @@ export class EventController {
   }
 
   @Post()
-  @Permissions('create:event')
+  // @Permissions('create:event')
   createEvent(@Body() body) {
     return this.eventService.createEvent(body);
   }
 
+  //event bulk create
+  @Post('/bulk')
+  // @Permissions('create:event')
+  createEventsBulk(@Body() body) {
+    return this.eventService.createEventsBulk(body);
+  }
   //add seats to event
   @Post('/:id/seats')
   @Permissions('update:event')

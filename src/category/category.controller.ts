@@ -51,8 +51,8 @@ export class CategoryController {
   //   return this.categoryService.getExperiencesByCategory(id);
   // }
 
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @Permissions('admin.category.view')
+  // @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  // @Permissions('admin.category.view')
   @Get('admin')
   findByAdmin(@Query() query: any) {
     return this.categoryService.findByAdmin(query);

@@ -13,6 +13,9 @@ import { RoleModule } from './role/role.module';
 import { UploadModule } from './upload/upload.module';
 import { UsersModule } from './users/users.module';
 import { CommonModule } from './common/common.module';
+import { CategoryModule } from './category/category.module';
+import { EventModule } from './event/event.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -38,6 +41,9 @@ import { CommonModule } from './common/common.module';
     AuthModule,
     UsersModule,
     RoleModule,
+    CategoryModule,
+    EventModule,
+    DashboardModule,
     // ExperienceModule,
     // BookingModule,
     // ReviewModule,
