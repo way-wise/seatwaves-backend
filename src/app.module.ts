@@ -1,5 +1,7 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 import { ConfigModule } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { AppController } from './app.controller';
@@ -19,6 +21,12 @@ import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
+    // Serve local files under storage/ at /storage/*
+    ServeStaticModule.forRoot({
+      rootPath: join(process.cwd(), 'storage'),
+      // Serve under the same global prefix path
+      serveRoot: '/api/v1/storage',
+    }),
     BullModule.forRoot({
       connection: redisConfig,
     }),

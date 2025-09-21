@@ -29,6 +29,8 @@ export class UploadController {
       const url = await this.uploadService.makeUrlPublic(key);
       return res.json(url);
     }
+
+    console.log('key', key);
     return await this.uploadService.localView(key, res);
   }
 
