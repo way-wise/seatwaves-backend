@@ -495,12 +495,16 @@ export class AuthService {
     const { email, name, picture, sub, id } = googleUser;
     const providerAccountId = sub || id;
 
-    const existingAccount = await this.prisma.account.findFirst({
-      where: { provider, providerAccountId },
-      include: { user: true },
+    // const existingAccount = await this.prisma.account.findFirst({
+    //   where: { provider, providerAccountId },
+    //   include: { user: true },
+    // });
+
+    const existingAccount = await this.prisma.user.findFirst({
+      where: { email },
     });
 
-    let user = existingAccount?.user;
+    let user = existingAccount;
 
     if (!user) {
       const role = await this.prisma.role.findUnique({

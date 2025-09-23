@@ -1,16 +1,5 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Post,
-  Put,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
 import { Permissions } from 'src/common/decorators/permissions.decorator';
-import { PermissionsGuard } from 'src/common/guards/permissions.guard';
 import { EventService } from './event.service';
 
 @Controller('events')
@@ -21,6 +10,12 @@ export class EventController {
   @Get()
   getEvents(@Query() query) {
     return this.eventService.getAllEventsPublic(query);
+  }
+
+  //get Signle Event
+  @Get('/:id')
+  getEvent(@Param('id') id: string) {
+    return this.eventService.getEvent(id);
   }
 
   //get events by id
@@ -55,13 +50,13 @@ export class EventController {
   //add seats to event
   @Post('/:id/seats')
   @Permissions('update:event')
-  addSeats(@Param('id') id: string, @Body() body) {
+  addSeats(@Param('id') id: string, @Body() body: any) {
     return this.eventService.addSeatToEvent(id, body);
   }
 
   @Put('/seats/:id')
   @Permissions('update:event')
-  updateSeat(@Param('id') id: string, @Body() body) {
+  updateSeat(@Param('id') id: string, @Body() body: any) {
     return this.eventService.updateSeat(id, body);
   }
 }

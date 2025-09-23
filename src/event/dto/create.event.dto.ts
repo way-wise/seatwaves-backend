@@ -1,7 +1,6 @@
 import { z } from 'zod';
 
 export const SeatSchema = z.object({
-  id: z.string().min(1),
   seatId: z.string().min(1),
   row: z.string().optional(),
   number: z.number().optional(),

@@ -69,7 +69,7 @@ export class EventService {
   }
 
   //get all events public with pagination and search
-  async getAllEventsPublic(query) {
+  async getAllEventsPublic(query: any) {
     const parsedQuery = eventQuerySchema.safeParse(query);
 
     if (!parsedQuery.success) {
@@ -103,7 +103,6 @@ export class EventService {
         include: {
           category: true,
           seller: true,
-          seats: true,
         },
       }),
       this.prisma.event.count({ where }),
@@ -121,6 +120,27 @@ export class EventService {
         limit: limitInt,
         nextCursor,
       },
+    };
+  }
+
+  //get single event
+  async getEvent(id: string) {
+    const event = await this.prisma.event.findUnique({
+      where: { id },
+      include: {
+        category: true,
+        seats: true,
+        seller: true,
+      },
+    });
+
+    if (!event) {
+      throw new NotAcceptableException('Event not found');
+    }
+
+    return {
+      status: true,
+      data: event,
     };
   }
 
@@ -377,12 +397,12 @@ export class EventService {
   }
 
   // Added Seat
-  async addSeatToEvent(eventId: string, seatData) {
+  async addSeatToEvent(eventId: string, seatData: any) {
     const parsedData = SeatSchema.safeParse(seatData);
 
     if (!parsedData.success) {
       this.logger.error('Validation failed', parsedData.error);
-      throw new NotAcceptableException('Invalid seat data');
+      throw new NotAcceptableException(parsedData.error.message);
     }
 
     const event = await this.prisma.event.findUnique({
@@ -419,7 +439,7 @@ export class EventService {
 
     if (!parsedData.success) {
       this.logger.error('Validation failed', parsedData.error);
-      throw new NotAcceptableException('Invalid seat data');
+      throw new NotAcceptableException(parsedData.error.message);
     }
 
     const seat = await this.prisma.seat.findUnique({
@@ -428,6 +448,10 @@ export class EventService {
 
     if (!seat) {
       throw new NotAcceptableException('Seat not found');
+    }
+
+    if (seat.isBooked) {
+      throw new NotAcceptableException('Seat is booked');
     }
 
     const updatedSeat = await this.prisma.seat.update({
