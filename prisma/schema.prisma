@@ -506,6 +506,7 @@ model Review {
 enum ReviewStatus {
   PENDING
   APPROVED
+  UNAPPROVED
   REJECTED
 }
 

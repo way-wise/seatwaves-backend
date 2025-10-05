@@ -807,6 +807,7 @@ Enum Currency {
 Enum ReviewStatus {
   PENDING
   APPROVED
+  UNAPPROVED
   REJECTED
 }
 
