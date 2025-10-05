@@ -75,8 +75,6 @@ export class BookingController {
   // ✅ Host - Get bookings
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('booking.read')
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @Permissions('booking.read')
   @Get()
   async findAll(@Query() query: any, @Req() req) {
     return await this.bookingService.findByHost(req.user.userId, query);

@@ -125,11 +125,6 @@ export class BookingService {
     const user = await this.prisma.user.findFirst({ where: { id: hostId } });
     if (!user) throw new NotFoundException('This user does not exist');
 
-    /*
-    TODO: filter by date, experience name and status
-    TODO: Add pagination
-
-    */
     const parseQuery = queryBookingSchema.safeParse(query);
 
     if (!parseQuery.success) {
@@ -151,9 +146,9 @@ export class BookingService {
 
     const where: any = {
       deletedAt: null,
-      // seat: {
-      //   userId: hostId,
-      // },
+      seat: {
+        sellerId: hostId,
+      },
     };
 
     if (search) {
@@ -185,8 +180,6 @@ export class BookingService {
       }
     }
 
-    //TODO: CHECK ROLE
-
     const [bookings, total] = await this.prisma.$transaction([
       this.prisma.booking.findMany({
         where,
@@ -208,8 +201,6 @@ export class BookingService {
       }),
     ]);
 
-    const hasNext = skip + parseInt(limit) < total;
-    const hasPrev = skip > 0;
     return {
       status: true,
       data: bookings,
@@ -217,8 +208,6 @@ export class BookingService {
       page: parseInt(page),
       limit: parseInt(limit),
       totalPages: Math.ceil(total / parseInt(limit)),
-      hasNext,
-      hasPrev,
     };
   }
 
@@ -424,6 +413,11 @@ export class BookingService {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
+        seat: {
+          select: {
+            sellerId: true,
+          },
+        },
         transactions: {
           where: { type: 'BOOKING_PAYMENT' },
           orderBy: { createdAt: 'desc' },
@@ -531,7 +525,7 @@ export class BookingService {
 
       // Notify host
       //TODO: get actual host id
-      const sellerId = 'dddddddddddddd';
+      const sellerId = booking.seat.sellerId;
       if (sellerId) {
         await this.notificationService.createAndQueueNotification(sellerId, {
           type: NotificationType.BOOKING,
