@@ -185,7 +185,7 @@ Table events {
   description String
   venue String
   startTime DateTime [not null]
-  endTime DateTime [not null]
+  endTime DateTime
   duration Int
   image String
   metadata Json

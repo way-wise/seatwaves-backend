@@ -15,8 +15,8 @@ export const createEventScehema = z.object({
   eventId: z.string().min(1),
   venue: z.string().min(3).max(100),
   startTime: z.coerce.date(),
-  endTime: z.coerce.date(),
-  duration: z.number().min(1), // duration in minutes
+  endTime: z.coerce.date().optional(),
+  duration: z.number().optional().default(0), // duration in minutes
   sellerId: z.string().min(1),
   categoryId: z.string().min(1),
   metadata: z.record(z.any()).optional(),

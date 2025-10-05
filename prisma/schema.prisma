@@ -272,7 +272,7 @@ model Event {
   description String?
   venue       String?
   startTime   DateTime
-  endTime     DateTime
+  endTime     DateTime?
   duration    Int? // in minutes
   image       String?
   metadata    Json?
