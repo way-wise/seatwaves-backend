@@ -64,6 +64,7 @@ Table users {
   userLoyalty UserLoyalty
   tierHistories TierHistory [not null]
   WishlistItem wishlist_items [not null]
+  Seat seats [not null]
 }
 
 Table user_otp {
@@ -209,19 +210,17 @@ Table seats {
   price Decimal [not null]
   discount Decimal [not null, default: 0]
   discountType DiscountType [not null, default: 'FIXED']
-  row String
-  number Int
-  section String
+  seatNumber String
+  description String
+  note String
   metadata Json
   isBooked Boolean [not null, default: false]
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [not null]
   event events [not null]
+  sellerId String [not null]
+  seller users [not null]
   bookings bookings [not null]
-
-  indexes {
-    (seatId, eventId) [unique]
-  }
 }
 
 Table bookings {
@@ -957,6 +956,8 @@ Ref: events.sellerId > users.id [delete: Cascade]
 Ref: events.categoryId > categorys.id
 
 Ref: seats.eventId > events.id [delete: Cascade]
+
+Ref: seats.sellerId > users.id [delete: Cascade]
 
 Ref: bookings.userId > users.id [delete: Cascade]
 

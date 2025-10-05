@@ -453,8 +453,7 @@ export class WebhookService {
               seat: {
                 select: {
                   id: true,
-                  number: true,
-                  row: true,
+                  seatId: true,
                 },
               },
             },

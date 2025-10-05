@@ -2,9 +2,7 @@ import { z } from 'zod';
 
 export const SeatSchema = z.object({
   seatId: z.string().min(1),
-  row: z.string().optional(),
-  number: z.number().optional(),
-  section: z.string().optional(),
+  seatNumber: z.string().optional(),
   metadata: z.record(z.any()).optional(),
   price: z.number().min(0),
   discount: z.number().min(0).optional().default(0),

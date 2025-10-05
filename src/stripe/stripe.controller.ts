@@ -13,21 +13,17 @@ import {
   Query,
   RawBodyRequest,
   Req,
-  Res,
   UseGuards,
-  ValidationPipe,
-  UsePipes,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import {
   ApiOperation,
+  ApiProperty,
   ApiResponse,
   ApiTags,
-  ApiProperty,
 } from '@nestjs/swagger';
-import { Request, Response } from 'express';
+import { Request } from 'express';
 import {
-  CreatePaymentIntentDto,
   createPaymentSession,
   ProcessPayoutDto,
   StripeService,
@@ -593,7 +589,7 @@ export class StripeController {
         error: error.message,
         stack: error.stack,
         userId: req.user.userId,
-        eventId: createPaymentDto.eventId,
+        seatId: createPaymentDto.seatId,
       });
 
       if (

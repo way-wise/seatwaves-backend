@@ -1,6 +1,17 @@
-import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Put,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { Permissions } from 'src/common/decorators/permissions.decorator';
 import { EventService } from './event.service';
+import { AuthGuard } from '@nestjs/passport';
 
 @Controller('events')
 // @UseGuards(AuthGuard('jwt'), PermissionsGuard)
@@ -35,10 +46,11 @@ export class EventController {
     return this.eventService.getEventsBySeller(id, query);
   }
 
+  @UseGuards(AuthGuard('jwt'))
   @Post()
   // @Permissions('create:event')
-  createEvent(@Body() body) {
-    return this.eventService.createEvent(body);
+  createEvent(@Body() body, @Req() req) {
+    return this.eventService.createEvent(body, req.user.userId);
   }
 
   //event bulk create
@@ -47,13 +59,14 @@ export class EventController {
   createEventsBulk(@Body() body) {
     return this.eventService.createEventsBulk(body);
   }
-  //add seats to event
+  //add seats to event\
+  @UseGuards(AuthGuard('jwt'))
   @Post('/:id/seats')
-  @Permissions('update:event')
-  addSeats(@Param('id') id: string, @Body() body: any) {
-    return this.eventService.addSeatToEvent(id, body);
+  addSeats(@Param('id') id: string, @Body() body: any, @Req() req) {
+    return this.eventService.addSeatToEvent(id, body, req.user.userId);
   }
 
+  @UseGuards(AuthGuard('jwt'))
   @Put('/seats/:id')
   @Permissions('update:event')
   updateSeat(@Param('id') id: string, @Body() body: any) {

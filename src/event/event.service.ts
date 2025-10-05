@@ -4,13 +4,11 @@ import { Queue } from 'bullmq';
 import { NotificationService } from 'src/notification/notification.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { QUEUES } from 'src/queues/queue.constants';
+import { z } from 'zod';
 import { createEventScehema, SeatSchema } from './dto/create.event.dto';
-import { connect } from 'http2';
-import { updateEventSchema } from './dto/update.event.dto';
-import { updateSeatSchema } from './dto/update.seat.dto';
 import { eventQuerySchema } from './dto/event.query.dto';
 import { seatQuerySchema } from './dto/seat.query.dto';
-import { z } from 'zod';
+import { updateSeatSchema } from './dto/update.seat.dto';
 
 @Injectable()
 export class EventService {
@@ -102,7 +100,7 @@ export class EventService {
         cursor: cursor ? { id: cursor } : undefined,
         include: {
           category: true,
-          seller: true,
+          seller: { select: { id: true, name: true } },
         },
       }),
       this.prisma.event.count({ where }),
@@ -129,8 +127,19 @@ export class EventService {
       where: { id },
       include: {
         category: true,
-        seats: true,
-        seller: true,
+        seats: {
+          select: {
+            id: true,
+            seatId: true,
+            seatNumber: true,
+            seller: { select: { id: true, name: true } },
+            price: true,
+            discount: true,
+            discountType: true,
+            isBooked: true,
+          },
+        },
+        seller: { select: { id: true, name: true } },
       },
     });
 
@@ -210,7 +219,7 @@ export class EventService {
   }
 
   //create Events
-  async createEvent(data) {
+  async createEvent(data: any, sellerId: string) {
     const parsedData = createEventScehema.safeParse(data);
 
     if (!parsedData.success) {
@@ -228,6 +237,7 @@ export class EventService {
         // If seats are provided, we can add them to the existing event
         const seatsToCreate = parsedData.data.seats.map((seat) => ({
           ...seat,
+          sellerId: existingEvent.sellerId,
           eventId: existingEvent.id,
         }));
 
@@ -252,7 +262,7 @@ export class EventService {
         startTime: parsedData.data.startTime,
         endTime: parsedData.data.endTime,
         duration: parsedData.data.duration,
-        sellerId: parsedData.data.sellerId,
+        sellerId: sellerId,
         metadata: parsedData.data.metadata,
         categoryId: parsedData.data.categoryId,
       },
@@ -261,6 +271,7 @@ export class EventService {
     if (parsedData.data.seats.length > 0) {
       const seatsToCreate = parsedData.data.seats.map((seat) => ({
         ...seat,
+        sellerId: sellerId,
         eventId: newEvent.id,
       }));
 
@@ -397,7 +408,7 @@ export class EventService {
   }
 
   // Added Seat
-  async addSeatToEvent(eventId: string, seatData: any) {
+  async addSeatToEvent(eventId: string, seatData: any, sellerId: string) {
     const parsedData = SeatSchema.safeParse(seatData);
 
     if (!parsedData.success) {
@@ -416,9 +427,7 @@ export class EventService {
     const newSeat = await this.prisma.seat.create({
       data: {
         seatId: parsedData.data.seatId,
-        row: parsedData.data.row,
-        number: parsedData.data.number,
-        section: parsedData.data.section,
+        sellerId: sellerId,
         metadata: parsedData.data.metadata,
         price: parsedData.data.price,
         discount: parsedData.data.discount,

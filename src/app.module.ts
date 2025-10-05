@@ -18,7 +18,8 @@ import { CommonModule } from './common/common.module';
 import { CategoryModule } from './category/category.module';
 import { EventModule } from './event/event.module';
 import { DashboardModule } from './dashboard/dashboard.module';
-
+import { BookingModule } from './booking/booking.module';
+import { StripeModule } from './stripe/stripe.module';
 @Module({
   imports: [
     // Serve local files under storage/ at /storage/*
@@ -53,7 +54,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     EventModule,
     DashboardModule,
     // ExperienceModule,
-    // BookingModule,
+    BookingModule,
     // ReviewModule,
     // MessageModule,
     // CategoryModule,
@@ -61,7 +62,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     // EventModule,
     // AmenityModule,
     // BlogModule,
-    // StripeModule,
+    StripeModule,
     // TransactionModule,
     // NotificationModule,
     // EmailModule,

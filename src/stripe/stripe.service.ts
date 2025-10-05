@@ -36,8 +36,7 @@ export interface CreatePaymentIntentDto {
 }
 
 export interface createPaymentSession {
-  eventId: string;
-  guestCount: number;
+  seatId: string;
   couponId?: string;
 }
 
@@ -350,36 +349,31 @@ export class StripeService {
       });
       if (!user) throw new NotFoundException('This user does not exist');
 
-      const event = await this.prisma.event.findUnique({
-        where: { id: data.eventId },
+      const seat = await this.prisma.seat.findUnique({
+        where: { id: data.seatId },
         include: {
-          seller: {
+          event: {
             select: {
               id: true,
-              name: true,
-              email: true,
-              stripeAccountId: true,
-              stripeOnboardingComplete: true,
-            },
-          },
-          seats: {
-            select: {
-              id: true,
-              bookings: {
-                where: {
-                  status: { in: ['PENDING', 'CONFIRMED'] },
-                  deletedAt: null,
+              title: true,
+              seller: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  stripeAccountId: true,
+                  stripeOnboardingComplete: true,
                 },
-                select: { id: true },
               },
             },
           },
         },
       });
-      if (!event) throw new NotFoundException('This event does not exist');
 
-      const price = new Decimal(0);
-      const discount = new Decimal(0);
+      if (!seat) throw new NotFoundException('This seat does not exist');
+
+      const price = new Decimal(seat.price);
+      const discount = new Decimal(seat.discount || 0);
 
       const basePrice = price.toNumber();
       const discountPercent = discount.toNumber();
@@ -387,18 +381,18 @@ export class StripeService {
         throw new BadRequestException('Invalid event pricing');
       }
 
-      const subtotal = basePrice * data.guestCount;
+      const subtotal = basePrice;
       const discountAmount = subtotal * (discountPercent / 100);
       const vat = 0;
       const tax = 0;
       const total = subtotal - discountAmount + vat + tax;
 
-      const seller = event.seller;
-      if (!seller.stripeAccountId || !seller.stripeOnboardingComplete) {
-        throw new BadRequestException(
-          'Seller has not completed Stripe onboarding',
-        );
-      }
+      const seller = seat.event.seller;
+      // if (!seller.stripeAccountId || !seller.stripeOnboardingComplete) {
+      //   throw new BadRequestException(
+      //     'Seller has not completed Stripe onboarding',
+      //   );
+      // }
 
       let appliedDiscount = 0;
       let finalAmount = total;
@@ -406,7 +400,7 @@ export class StripeService {
       const platformFee = this.calculatePlatformFee(finalAmount, 5);
       const ctx = {
         user,
-        event,
+        seat,
         seller,
         finalAmount,
         appliedDiscount,
@@ -416,6 +410,8 @@ export class StripeService {
       // 2) Outside transaction: ensure customer exists
       const customer = await this.getOrCreateCustomer(userId);
 
+      console.log(ctx.finalAmount, 'finalAmount');
+
       // 3) Create Stripe Checkout Session outside the transaction expire 5 min
       const session = await this.stripe.checkout.sessions.create({
         payment_method_types: ['card'],
@@ -424,7 +420,7 @@ export class StripeService {
             price_data: {
               currency: 'usd',
               product_data: {
-                name: ctx.event.title,
+                name: ctx.seat.event.title,
                 description: 'Event booking',
               },
               unit_amount: Math.round(ctx.finalAmount * 100),
@@ -441,7 +437,7 @@ export class StripeService {
           application_fee_amount: Math.round(ctx.platformFee * 100),
           transfer_data: { destination: ctx.seller.stripeAccountId as string },
           metadata: {
-            eventId: data.eventId || '',
+            eventId: ctx.seat.event.id || '',
             sellerId: ctx.seller.id,
             customerId: customer.id,
             couponId: data.couponId || '',
@@ -450,11 +446,13 @@ export class StripeService {
           },
         },
         metadata: {
-          eventId: data.eventId,
+          eventId: ctx.seat.event.id,
           customerId: customer.id,
           sellerId: ctx.seller.id,
         },
       });
+
+      console.log(ctx);
 
       // 3.1) Reserve tickets and create booking + transaction atomically
       await this.prisma.$transaction(async (tx) => {
@@ -464,7 +462,7 @@ export class StripeService {
           data: {
             userId: userId,
             status: BookingStatus.PENDING,
-            seatId: data.eventId,
+            seatId: data.seatId,
             price: price,
             discount: appliedDiscount + discountAmount,
             paymentMethod: 'STRIPE',
@@ -479,16 +477,16 @@ export class StripeService {
                 provider: PaymentProvider.STRIPE_CONNECT,
                 payerId: userId,
                 payeeId: ctx.seller.id,
-                eventId: ctx.event.id,
+                eventId: ctx.seat.event.id,
                 stripePaymentIntent: session.id,
                 stripeAccountId: ctx.seller.stripeAccountId as string,
                 platformFee: ctx.platformFee,
                 sellerAmount: ctx.finalAmount - ctx.platformFee,
-                description: `Payment for ${ctx.event.title}`,
+                description: `Payment for ${ctx.seat.event.title}`,
                 externalTxnId: session.id,
                 metadata: {
                   reservedAt: new Date().toISOString(),
-                  reservedCount: data.guestCount,
+                  reservedCount: 1,
                 },
               },
             },
@@ -523,7 +521,7 @@ export class StripeService {
       });
 
       this.logger.log(
-        `Created Checkout Session ${session.id} for event ${ctx.event.id} and user ${userId}`,
+        `Created Checkout Session ${session.id} for event ${ctx.seat.event.id} and user ${userId}`,
       );
 
       return {

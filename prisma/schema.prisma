@@ -92,6 +92,7 @@ model User {
   userLoyalty              UserLoyalty?
   tierHistories            TierHistory[]
   WishlistItem             WishlistItem[]
+  Seat                     Seat[]
 
   @@index([name])
   @@index([email])
@@ -307,19 +308,22 @@ model Seat {
   price        Decimal      @db.Decimal(10, 2)
   discount     Decimal      @default(0) @db.Decimal(10, 2)
   discountType DiscountType @default(FIXED)
-  row          String?
-  number       Int?
-  section      String?
+  seatNumber   String?
+  description  String?
+  note         String?
   metadata     Json?
   isBooked     Boolean      @default(false)
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   event     Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  sellerId  String
+  seller    User      @relation(fields: [sellerId], references: [id], onDelete: Cascade)
   bookings  Booking[]
 
-  @@unique([seatId, eventId], name: "unique_seat_per_event")
   @@index([eventId])
+  @@index([sellerId])
+  @@index([seatNumber])
   @@map("seats")
 }
 

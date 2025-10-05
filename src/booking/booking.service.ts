@@ -151,15 +151,14 @@ export class BookingService {
 
     const where: any = {
       deletedAt: null,
-      experience: {
-        userId: hostId,
-      },
+      // seat: {
+      //   userId: hostId,
+      // },
     };
 
     if (search) {
       where.OR = [
         { id: { equals: search } },
-        { experience: { name: { contains: search, mode: 'insensitive' } } },
         { user: { name: { contains: search, mode: 'insensitive' } } },
       ];
     }
