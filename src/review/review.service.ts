@@ -14,7 +14,7 @@ import { StatusDto, statusSchema } from './dto/status.dto';
 export class ReviewService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(data: createReviewDto) {
+  async create(data: createReviewDto, userId: string) {
     const booking = await this.prisma.booking.findUnique({
       where: { id: data.bookingId },
       select: {
@@ -29,6 +29,10 @@ export class ReviewService {
     });
 
     if (!booking || !booking.seat?.event) {
+      throw new NotAcceptableException("You can't provide review");
+    }
+
+    if (userId !== booking.userId) {
       throw new NotAcceptableException("You can't provide review");
     }
 
@@ -78,6 +82,10 @@ export class ReviewService {
     //   where: { id: booking.seat.event.id },
     //   data: { averageRating },
     // });
+    await this.prisma.user.update({
+      where: { id: booking.seat.event.sellerId },
+      data: { averageRating },
+    });
 
     return {
       status: true,

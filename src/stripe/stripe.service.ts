@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import {
   BookingStatus,
   Currency,
+  DeliveryType,
   PaymentProvider,
   Prisma,
   TransactionStatus,
@@ -37,7 +38,11 @@ export interface CreatePaymentIntentDto {
 
 export interface createPaymentSession {
   seatId: string;
+  deliveryType: DeliveryType;
   couponId?: string;
+  pickupAddress?: string;
+  phone?: string;
+  email?: string;
 }
 
 export interface OnboardHostDto {
@@ -410,8 +415,6 @@ export class StripeService {
       // 2) Outside transaction: ensure customer exists
       const customer = await this.getOrCreateCustomer(userId);
 
-      console.log(ctx.finalAmount, 'finalAmount');
-
       // 3) Create Stripe Checkout Session outside the transaction expire 5 min
       const session = await this.stripe.checkout.sessions.create({
         payment_method_types: ['card'],
@@ -443,6 +446,7 @@ export class StripeService {
             couponId: data.couponId || '',
             appliedDiscount: ctx.appliedDiscount.toString(),
             paymentType: 'booking_payment',
+            deliveryType: data.deliveryType,
           },
         },
         metadata: {
@@ -451,8 +455,6 @@ export class StripeService {
           sellerId: ctx.seller.id,
         },
       });
-
-      console.log(ctx);
 
       // 3.1) Reserve tickets and create booking + transaction atomically
       await this.prisma.$transaction(async (tx) => {
@@ -466,6 +468,10 @@ export class StripeService {
             price: price,
             discount: appliedDiscount + discountAmount,
             paymentMethod: 'STRIPE',
+            deliveryType: data.deliveryType,
+            pickupAddress: data.pickupAddress,
+            phone: data.phone,
+            email: data.email,
             tax,
             vat,
             total,
@@ -491,6 +497,10 @@ export class StripeService {
               },
             },
           },
+        });
+        await tx.seat.update({
+          where: { id: data.seatId },
+          data: { isBooked: true },
         });
       });
 

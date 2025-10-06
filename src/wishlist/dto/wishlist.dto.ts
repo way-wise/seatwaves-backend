@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const createWishlistSchema = z.object({
-  experienceId: z.string().uuid(),
+  eventId: z.string().uuid(),
   userId: z.string().uuid(),
 });
 

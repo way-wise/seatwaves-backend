@@ -334,7 +334,7 @@ export class BookingService {
 
     if (
       booking.status === BookingStatus.CANCELLED ||
-      booking.status === BookingStatus.COMPLETED
+      booking.status === BookingStatus.DELIVERED
     ) {
       throw new ForbiddenException(
         `A booking that is ${booking.status} cannot be updated.`,
@@ -446,8 +446,8 @@ export class BookingService {
     if (booking.status === 'CANCELLED')
       throw new ForbiddenException('This booking is already cancelled');
 
-    if (booking.status === 'COMPLETED')
-      throw new ForbiddenException('This booking is already completed');
+    if (booking.status === 'DELIVERED')
+      throw new ForbiddenException('This booking is already delivered');
 
     // Ensure we have a successful payment transaction to refund
     const originalTxn = booking.transactions[0];
@@ -749,6 +749,20 @@ Thank you.`;
         },
         rooms: { select: { id: true } },
       },
+    });
+
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    return {
+      status: true,
+      data: booking,
+    };
+  }
+
+  // Generate booking code
+  async generateBookingCode(bookingId: string) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
     });
 
     if (!booking) throw new NotFoundException('Booking not found');

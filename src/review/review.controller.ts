@@ -31,8 +31,8 @@ export class ReviewController {
   @Permissions('review.create')
   @UsePipes(new ZodValidationPipe(createReviewSchema))
   @Post()
-  create(@Body() body: createReviewDto) {
-    return this.reviewService.create(body);
+  create(@Body() body: createReviewDto, @Req() req) {
+    return this.reviewService.create(body, req.user.userId);
   }
 
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
@@ -67,8 +67,8 @@ export class ReviewController {
   }
 
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @Permissions('review.read', 'host.reviews.view')
-  @Get('/host')
+  @Permissions('review.read', 'seller.reviews.view')
+  @Get('/seller')
   @UsePipes(new ZodQueryValidationPipe(reviewQueryByHostSchema))
   findAllByHost(@Req() req, @Query() query: ReviewQueryByHost) {
     return this.reviewService.findAllByHost(req.user.userId, query);
@@ -76,7 +76,7 @@ export class ReviewController {
 
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('review.read')
-  @Get('/experiences/:id')
+  @Get('/event/:id')
   findAllByExperience(@Param('id') id: string, @Query() query: any) {
     return this.reviewService.findAllByExperience(id, query);
   }

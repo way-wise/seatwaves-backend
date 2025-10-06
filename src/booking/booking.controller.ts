@@ -114,4 +114,14 @@ export class BookingController {
     }
     return this.bookingService.adminGetBookingDetails(bookingId);
   }
+
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @Permissions('booking.read')
+  @Get('/generate/code/:bookingId')
+  async generateBookingCode(@Param('bookingId') bookingId: string, @Req() req) {
+    if (!req.user) {
+      throw new UnauthorizedException('User not found');
+    }
+    return this.bookingService.generateBookingCode(bookingId);
+  }
 }

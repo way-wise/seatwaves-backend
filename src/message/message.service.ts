@@ -1,29 +1,21 @@
 // src/message/message.service.ts
 import {
-  Injectable,
-  NotFoundException,
-  ForbiddenException,
   BadRequestException,
+  ForbiddenException,
+  Injectable,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
+import { Message, Prisma, User } from '@prisma/client';
+import { UploadService } from 'src/upload/upload.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { InitMessageDto } from './dto/initMessage.dto';
 import { CreateMessageDto, createMessageSchema } from './dto/message.dto';
-import { Role, User, Message, Prisma } from '@prisma/client';
 import {
   PaginationQueryDto,
   paginationQuerySchema,
 } from './dto/pagination.dto';
-import { InitMessageDto } from './dto/initMessage.dto';
-import { UploadService } from 'src/upload/upload.service';
 import { SidebarQuery, SidebarQuerySchema } from './dto/sidebar.dto';
-
-interface ConversationItem {
-  bookingId: string;
-  experienceName: string;
-  guest?: User;
-  host?: User;
-  lastMessage: Message | null;
-}
 
 @Injectable()
 export class MessageService {
@@ -35,46 +27,52 @@ export class MessageService {
   private readonly logger = new Logger(MessageService.name);
 
   async initiateMessage(body: InitMessageDto, userId: string) {
-    const existEvent = await this.prisma.event.findUnique({
+    const existBooking = await this.prisma.booking.findUnique({
       where: {
-        id: body.experienceId,
+        id: body.bookingId,
+      },
+      include: {
+        seat: true,
       },
     });
 
-    if (!existEvent) {
-      throw new NotFoundException('Event not found');
+    if (!existBooking) {
+      throw new NotFoundException('Booking not found');
     }
 
-    if (existEvent.sellerId === userId) {
+    if (existBooking.seat.sellerId === userId) {
       throw new BadRequestException(
         'You cannot initiate a message with yourself',
       );
     }
-    type MessageRoomWhereUniqueInputWithEventId =
+    type MessageRoomWhereUniqueInputWithBookingId =
       Prisma.MessageRoomWhereUniqueInput & {
-        senderId_receiverId_eventId: {
+        senderId_receiverId_bookingId: {
           senderId: string;
           receiverId: string;
-          eventId: string;
+          bookingId: string;
         };
       };
 
+    if (!body.bookingId) {
+      throw new BadRequestException('Booking ID is required');
+    }
+
     const exists = await this.prisma.messageRoom.findUnique({
       where: {
-        senderId_receiverId_eventId: {
+        unique_message_room: {
           senderId: userId,
-          receiverId: existEvent.sellerId,
-          eventId: body.experienceId,
+          receiverId: existBooking.seat.sellerId,
+          bookingId: body.bookingId,
         },
-      } as MessageRoomWhereUniqueInputWithEventId,
+      },
     });
-
     if (exists) {
       const message = await this.prisma.message.create({
         data: {
           message: body.message,
           senderId: userId,
-          receiverId: existEvent.sellerId,
+          receiverId: existBooking.seat.sellerId,
           roomId: exists.id,
         },
       });
@@ -89,13 +87,13 @@ export class MessageService {
     const newMessageRoom = await this.prisma.messageRoom.create({
       data: {
         senderId: userId,
-        receiverId: existEvent.sellerId,
-        eventId: body.experienceId,
+        receiverId: existBooking.seat.sellerId,
+        bookingId: body.bookingId,
         messages: {
           create: {
             message: body.message,
             senderId: userId,
-            receiverId: existEvent.sellerId, // Add this line
+            receiverId: existBooking.seat.sellerId, // Add this line
           },
         },
       },

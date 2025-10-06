@@ -20,6 +20,9 @@ import { EventModule } from './event/event.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { BookingModule } from './booking/booking.module';
 import { StripeModule } from './stripe/stripe.module';
+import { MessageModule } from './message/message.module';
+import { WishlistModule } from './wishlist/wishlist.module';
+import { ReviewModule } from './review/review.module';
 @Module({
   imports: [
     // Serve local files under storage/ at /storage/*
@@ -53,10 +56,10 @@ import { StripeModule } from './stripe/stripe.module';
     CategoryModule,
     EventModule,
     DashboardModule,
-    // ExperienceModule,
+    MessageModule,
     BookingModule,
-    // ReviewModule,
-    // MessageModule,
+    WishlistModule,
+    ReviewModule,
     // CategoryModule,
     // WishlistModule,
     // EventModule,

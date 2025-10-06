@@ -100,10 +100,10 @@ export class WishlistService {
     };
   }
 
-  async addItem(experienceId: string, userId: string) {
+  async addItem(eventId: string, userId: string) {
     //check if experience exists
     const experience = await this.prisma.event.findUnique({
-      where: { id: experienceId },
+      where: { id: eventId },
     });
 
     if (!experience) {
@@ -112,7 +112,7 @@ export class WishlistService {
     //check if user has already added this experience
     const exists = await this.prisma.wishlistItem.findFirst({
       where: {
-        AND: [{ userId: userId }, { eventId: experienceId }],
+        AND: [{ userId: userId }, { eventId: eventId }],
       },
     });
 
@@ -123,17 +123,17 @@ export class WishlistService {
     const wishlist = await this.prisma.wishlistItem.create({
       data: {
         userId: userId,
-        eventId: experienceId,
+        eventId: eventId,
       },
     });
     return { status: true, data: wishlist };
   }
 
-  async removeItem(userId: string, experienceId: string) {
+  async removeItem(userId: string, eventId: string) {
     //check if user has already added this experience
 
     const wishlist = await this.prisma.wishlistItem.deleteMany({
-      where: { AND: [{ userId: userId }, { eventId: experienceId }] },
+      where: { AND: [{ userId: userId }, { eventId: eventId }] },
     });
 
     if (wishlist.count === 0) {

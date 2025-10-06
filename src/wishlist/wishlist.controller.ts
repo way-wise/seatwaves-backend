@@ -19,10 +19,10 @@ import { PermissionsGuard } from 'src/common/guards/permissions.guard';
 export class WishlistController {
   constructor(private readonly wishlistService: WishlistService) {}
 
-  @Post(':experienceId')
+  @Post(':eventId')
   @UseGuards(AuthGuard('jwt'))
-  async create(@Param('experienceId') experienceId: string, @Req() req) {
-    return this.wishlistService.addItem(experienceId, req.user.userId);
+  async create(@Param('eventId') eventId: string, @Req() req) {
+    return this.wishlistService.addItem(eventId, req.user.userId);
   }
 
   @UseGuards(AuthGuard('jwt'))
@@ -33,7 +33,7 @@ export class WishlistController {
   }
 
   @Get('/app')
-    async findAllApp(@Query() query: any, @Req() req) {
+  async findAllApp(@Query() query: any, @Req() req) {
     return this.wishlistService.findAllApp(req.user.userId, query);
   }
 

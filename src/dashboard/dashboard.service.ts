@@ -136,7 +136,7 @@ export class DashboardService {
       // Total revenue in the selected period based on completed bookings on seller's events
       this.prisma.booking.aggregate({
         where: {
-          status: 'COMPLETED',
+          status: 'DELIVERED',
           createdAt: { gte: startDate, lte: endDate },
           seat: { event: { sellerId: userId } },
         },
@@ -146,7 +146,7 @@ export class DashboardService {
       // Completed bookings count in the selected period
       this.prisma.booking.count({
         where: {
-          status: 'COMPLETED',
+          status: 'DELIVERED',
           createdAt: { gte: startDate, lte: endDate },
           seat: { event: { sellerId: userId } },
         },
@@ -749,7 +749,7 @@ export class DashboardService {
     const bookings = await this.prisma.booking.findMany({
       where: {
         seat: { event: { sellerId: userId } },
-        status: { in: ['COMPLETED', 'CONFIRMED'] },
+        status: { in: ['DELIVERED', 'CONFIRMED'] },
       },
       select: { id: true, createdAt: true, total: true },
     });

@@ -50,6 +50,7 @@ model User {
   lattitude                Float?
   longitude                Float?
   status                   UserStatus             @default(ACTIVE)
+  averageRating            Float                  @default(0)
   isEmailVerified          Boolean                @default(false)
   isTwoFactorEnabled       Boolean                @default(false)
   isSellerVerified         Boolean                @default(false)
@@ -266,8 +267,8 @@ model UserInterest {
 }
 
 model Event {
-  id          String   @id @default(ulid())
-  eventId     String   @unique
+  id          String    @id @default(ulid())
+  eventId     String    @unique
   title       String
   description String?
   venue       String?
@@ -343,6 +344,12 @@ model Booking {
   vat           Decimal
   tax           Decimal
   total         Decimal
+  pickupAddress String?
+  phone         String?
+  email         String?
+  note          String?
+  alertMessage  String?
+  deliveryType  DeliveryType    @default(ONLINE)
   status        BookingStatus   @default(PENDING)
   paymentMethod PaymentProvider @default(STRIPE)
   createdAt     DateTime        @default(now())
@@ -355,6 +362,12 @@ model Booking {
   @@index([status])
   @@index([createdAt])
   @@map("bookings")
+}
+
+enum DeliveryType {
+  PHYSICAL_MAIL
+  IN_PERSON_PICKUP
+  ONLINE
 }
 
 model Transaction {
@@ -516,15 +529,15 @@ model MessageRoom {
   senderId   String
   receiver   User      @relation("MessageRoomReceiver", fields: [receiverId], references: [id])
   receiverId String
-  eventId    String
-  event      Event     @relation(fields: [eventId], references: [id])
   bookingId  String?
   booking    Booking?  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   messages   Message[]
+  Event      Event?    @relation(fields: [eventId], references: [id])
+  eventId    String?
 
-  @@unique([senderId, receiverId, eventId], name: "unique_message_room")
+  @@unique([senderId, receiverId, bookingId], name: "unique_message_room")
   @@index([createdAt])
   @@index([bookingId])
   @@index([receiverId])
@@ -688,8 +701,9 @@ model NotificationsSettings {
 enum BookingStatus {
   PENDING
   CONFIRMED
+  SHIPPED
+  DELIVERED
   CANCELLED
-  COMPLETED
   EXPIRED
   REFUNDED
 }

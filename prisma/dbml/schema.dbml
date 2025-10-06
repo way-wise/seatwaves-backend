@@ -23,6 +23,7 @@ Table users {
   lattitude Float
   longitude Float
   status UserStatus [not null, default: 'ACTIVE']
+  averageRating Float [not null, default: 0]
   isEmailVerified Boolean [not null, default: false]
   isTwoFactorEnabled Boolean [not null, default: false]
   isSellerVerified Boolean [not null, default: false]
@@ -234,6 +235,12 @@ Table bookings {
   vat Decimal [not null]
   tax Decimal [not null]
   total Decimal [not null]
+  pickupAddress String
+  phone String
+  email String
+  note String
+  alertMessage String
+  deliveryType DeliveryType [not null, default: 'ONLINE']
   status BookingStatus [not null, default: 'PENDING']
   paymentMethod PaymentProvider [not null, default: 'STRIPE']
   createdAt DateTime [default: `now()`, not null]
@@ -304,16 +311,16 @@ Table message_rooms {
   senderId String [not null]
   receiver users [not null]
   receiverId String [not null]
-  eventId String [not null]
-  event events [not null]
   bookingId String
   booking bookings
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [not null]
   messages messages [not null]
+  Event events
+  eventId String
 
   indexes {
-    (senderId, receiverId, eventId) [unique]
+    (senderId, receiverId, bookingId) [unique]
   }
 }
 
@@ -760,6 +767,12 @@ Enum DiscountType {
   FIXED
 }
 
+Enum DeliveryType {
+  PHYSICAL_MAIL
+  IN_PERSON_PICKUP
+  ONLINE
+}
+
 Enum payoutStatus {
   NULL
   UNPAID
@@ -841,8 +854,9 @@ Enum BusinessInfoStatus {
 Enum BookingStatus {
   PENDING
   CONFIRMED
+  SHIPPED
+  DELIVERED
   CANCELLED
-  COMPLETED
   EXPIRED
   REFUNDED
 }
@@ -986,9 +1000,9 @@ Ref: message_rooms.senderId > users.id
 
 Ref: message_rooms.receiverId > users.id
 
-Ref: message_rooms.eventId > events.id
-
 Ref: message_rooms.bookingId > bookings.id [delete: Cascade]
+
+Ref: message_rooms.eventId > events.id
 
 Ref: messages.roomId > message_rooms.id
 
