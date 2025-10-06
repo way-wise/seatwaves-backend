@@ -130,12 +130,12 @@ export class BookingController {
   @Get('/verify/:bookingId')
   async verifyBookingCode(
     @Param('bookingId') bookingId: string,
-    @Body() otp: string,
+    @Body() body: { otp: string },
     @Req() req,
   ) {
     if (!req.user) {
       throw new UnauthorizedException('User not found');
     }
-    return this.bookingService.verifyBookingCode(bookingId, otp);
+    return this.bookingService.verifyBookingCode(bookingId, body.otp);
   }
 }

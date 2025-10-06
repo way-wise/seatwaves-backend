@@ -227,6 +227,18 @@ export class EventService {
       throw new NotAcceptableException('Invalid event data');
     }
 
+    const seller = await this.prisma.user.findUnique({
+      where: { id: sellerId },
+    });
+
+    if (!seller) {
+      throw new NotAcceptableException('Seller not found');
+    }
+
+    if (!seller.stripeOnboardingComplete) {
+      throw new NotAcceptableException('Seller not onboarding complete');
+    }
+
     //check event already exists
     const existingEvent = await this.prisma.event.findUnique({
       where: { eventId: parsedData.data.eventId },

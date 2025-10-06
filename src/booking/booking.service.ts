@@ -817,6 +817,7 @@ Thank you.`;
 
     return {
       status: true,
+      message: 'Booking code generated successfully',
       data: booking,
     };
   }
