@@ -735,6 +735,7 @@ Enum OtpType {
   TWO_FACTOR
   VERIFY_EMAIL
   VERIFY_PHONE
+  BOOKING
 }
 
 Enum Gender {

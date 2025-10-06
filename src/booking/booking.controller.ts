@@ -124,4 +124,18 @@ export class BookingController {
     }
     return this.bookingService.generateBookingCode(bookingId);
   }
+
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @Permissions('booking.read')
+  @Get('/verify/:bookingId')
+  async verifyBookingCode(
+    @Param('bookingId') bookingId: string,
+    @Body() otp: string,
+    @Req() req,
+  ) {
+    if (!req.user) {
+      throw new UnauthorizedException('User not found');
+    }
+    return this.bookingService.verifyBookingCode(bookingId, otp);
+  }
 }

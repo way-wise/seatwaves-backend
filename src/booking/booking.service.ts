@@ -11,6 +11,7 @@ import { ConfigService } from '@nestjs/config';
 import {
   BookingStatus,
   Currency,
+  OtpType,
   PaymentProvider,
   Prisma,
   TransactionStatus,
@@ -763,13 +764,145 @@ Thank you.`;
   async generateBookingCode(bookingId: string) {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
     });
 
     if (!booking) throw new NotFoundException('Booking not found');
+
+    //send verification email
+    // Generate OTP
+
+    // Clear existing OTPs for this user
+    await this.prisma.userOtp.deleteMany({
+      where: { email: booking.user.email, type: OtpType.BOOKING },
+    });
+
+    const otp = this.generateMixedOTP(6);
+
+    // Save OTP
+    const otpData = await this.prisma.userOtp.create({
+      data: {
+        email: booking.user.email,
+        type: OtpType.BOOKING,
+        otp,
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes expiry
+      },
+    });
+
+    await this.emailService.sendOTPEmail({
+      to: booking.user.email,
+      subject: 'Booking OTP',
+      text: `Your OTP for booking is ${otpData.otp}. This OTP is valid for 10 minutes. Do not share this OTP with anyone.`,
+      html: `Your OTP for booking is <b>${otpData.otp}</b>. This OTP is valid for 10 minutes. Do not share this OTP with anyone.`,
+    });
+
+    //Send Notification
+    await this.notificationService.sendNotification(booking.user.id, {
+      title: 'Booking OTP',
+      message: `Your OTP for booking is ${otpData.otp}. This OTP is valid for 10 minutes. Do not share this OTP with anyone.`,
+      type: NotificationType.BOOKING,
+      data: {
+        bookingId: booking.id,
+        otp: otpData.otp,
+      },
+    });
 
     return {
       status: true,
       data: booking,
     };
+  }
+
+  async verifyBookingCode(bookingId: string, otp: string) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        seat: {
+          select: {
+            sellerId: true,
+          },
+        },
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    if (!booking) throw new NotFoundException('Booking not found');
+
+    const otpData = await this.prisma.userOtp.findFirst({
+      where: { otp: otp, type: OtpType.BOOKING },
+    });
+
+    if (!otpData) throw new NotFoundException('OTP not found');
+
+    if (otpData.otp !== otp) throw new BadRequestException('Invalid OTP');
+
+    if (otpData.expiresAt && otpData.expiresAt < new Date())
+      throw new BadRequestException('OTP expired');
+
+    await this.prisma.booking.update({
+      where: { id: bookingId },
+      data: { status: BookingStatus.DELIVERED },
+    });
+
+    await this.prisma.userOtp.delete({ where: { id: otpData.id } });
+
+    this.notificationService.sendNotification(booking.user.id, {
+      title: 'Booking Verified',
+      message: 'Your booking has been verified successfully.',
+      type: NotificationType.BOOKING,
+      data: {
+        bookingId: booking.id,
+      },
+    });
+
+    this.notificationService.sendNotification(booking.seat.sellerId, {
+      title: 'Booking  Verified',
+      message: 'Your booking has been verified successfully.',
+      type: NotificationType.BOOKING,
+      data: {
+        bookingId: booking.id,
+      },
+    });
+
+    this.emailService.sendEmailToUser(booking.user.id, {
+      subject: 'Booking Verified',
+      text: `Your booking has been verified successfully.`,
+      html: `<b>Your booking has been verified successfully.</b>`,
+    });
+
+    this.emailService.sendEmailToUser(booking.seat.sellerId, {
+      subject: 'Booking Verified',
+      text: `Your booking has been verified successfully.`,
+      html: `<b>Your booking has been verified successfully.</b>`,
+    });
+
+    return {
+      status: true,
+      data: booking,
+      message: 'Booking verified successfully',
+    };
+  }
+
+  private generateMixedOTP(length = 6) {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let otp = '';
+    for (let i = 0; i < length; i++) {
+      otp += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return otp;
   }
 }
