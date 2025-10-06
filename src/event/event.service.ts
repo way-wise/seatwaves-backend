@@ -235,7 +235,7 @@ export class EventService {
       throw new NotAcceptableException('Seller not found');
     }
 
-    if (!seller.stripeOnboardingComplete) {
+    if (!seller.stripeAccountId) {
       throw new NotAcceptableException('Seller not onboarding complete');
     }
 
