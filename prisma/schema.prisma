@@ -108,6 +108,25 @@ model User {
   @@map("users")
 }
 
+model AdminBalance {
+  id        String           @id @default(cuid())
+  amount    Float // amount in USD
+  type      AdminBalanceType // "credit" / "debit"
+  reference String? // Booking ID, Transfer ID, etc
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([reference])
+  @@index([type])
+  @@index([createdAt])
+  @@map("admin_balance")
+}
+
+enum AdminBalanceType {
+  CREDIT
+  DEBIT
+}
+
 //OTP For Email
 model UserOtp {
   id        String    @id @default(ulid())

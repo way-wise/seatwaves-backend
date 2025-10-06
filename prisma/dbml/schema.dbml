@@ -68,6 +68,15 @@ Table users {
   Seat seats [not null]
 }
 
+Table admin_balance {
+  id String [pk]
+  amount Float [not null]
+  type AdminBalanceType [not null]
+  reference String
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
 Table user_otp {
   id String [pk]
   type OtpType [not null, default: 'VERIFY_EMAIL']
@@ -725,6 +734,11 @@ Enum UserStatus {
   PENDING
   SUSPENDED
   DELETED
+}
+
+Enum AdminBalanceType {
+  CREDIT
+  DEBIT
 }
 
 Enum OtpType {
