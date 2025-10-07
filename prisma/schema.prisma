@@ -113,6 +113,7 @@ model AdminBalance {
   amount    Float // amount in USD
   type      AdminBalanceType // "credit" / "debit"
   reference String? // Booking ID, Transfer ID, etc
+  metadata  Json?
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
 

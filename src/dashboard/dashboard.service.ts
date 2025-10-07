@@ -15,6 +15,7 @@ import {
   DashboardQuerySchema,
 } from './dto/dashboard.query.dto';
 import { AdminDashboardQuerySchema } from './dto/admin.dashboard.query.dto';
+import { AdminBalanceType } from '@prisma/client';
 
 @Injectable()
 export class DashboardService {
@@ -742,6 +743,120 @@ export class DashboardService {
     return response;
   }
 
+  async getAdminBalance(query: any) {
+    const {
+      page = '1',
+      limit = '10',
+      type, // 'CREDIT' | 'DEBIT'
+      search, // matches id/reference
+      from, // YYYY-MM-DD
+      to, // YYYY-MM-DD
+      sortBy = 'createdAt', // 'createdAt' | 'amount'
+      sortOrder = 'desc', // 'asc' | 'desc'
+    } = query || {};
+
+    const pageInt = Math.max(parseInt(page as string, 10) || 1, 1);
+    const limitInt = Math.min(
+      Math.max(parseInt(limit as string, 10) || 10, 1),
+      100,
+    );
+    const skip = (pageInt - 1) * limitInt;
+
+    // Date filter for createdAt
+    const whereDate: any = {};
+    if (from || to) {
+      const createdAt: any = {};
+      if (from) {
+        const d = new Date(from);
+        if (!isNaN(d.getTime()))
+          createdAt.gte = new Date(d.setHours(0, 0, 0, 0));
+      }
+      if (to) {
+        const d = new Date(to);
+        if (!isNaN(d.getTime()))
+          createdAt.lte = new Date(d.setHours(23, 59, 59, 999));
+      }
+      if (Object.keys(createdAt).length > 0) whereDate.createdAt = createdAt;
+    }
+
+    // List filters
+    const where: any = { ...whereDate };
+    if (type) {
+      const t = String(type).toUpperCase();
+      if (t === 'CREDIT' || t === 'DEBIT') where.type = t as AdminBalanceType;
+    }
+    if (search) {
+      const s = String(search).trim();
+      where.OR = [
+        { id: { contains: s, mode: 'insensitive' } },
+        { reference: { contains: s, mode: 'insensitive' } },
+      ];
+    }
+
+    const [
+      items,
+      total,
+      totalCreditAgg,
+      totalDebitAgg,
+      upcomingHostPayoutsAgg,
+    ] = await Promise.all([
+      this.prisma.adminBalance.findMany({
+        where,
+        skip,
+        take: limitInt,
+        orderBy: { [sortBy as string]: sortOrder as 'asc' | 'desc' },
+        select: {
+          id: true,
+          amount: true,
+          type: true,
+          reference: true,
+          createdAt: true,
+        },
+      }),
+      this.prisma.adminBalance.count({ where }),
+      this.prisma.adminBalance.aggregate({
+        where: { ...whereDate, type: 'CREDIT' as AdminBalanceType },
+        _sum: { amount: true },
+      }),
+      this.prisma.adminBalance.aggregate({
+        where: { ...whereDate, type: 'DEBIT' as AdminBalanceType },
+        _sum: { amount: true },
+      }),
+      // Upcoming: host earnings pending payout (platform owes hosts)
+      this.prisma.transaction.aggregate({
+        where: {
+          type: 'BOOKING_PAYMENT',
+          status: 'SUCCESS',
+          payoutStatus: 'UNPAID',
+        },
+        _sum: { sellerAmount: true },
+      }),
+    ]);
+
+    const totalCredit = Number(totalCreditAgg._sum.amount || 0);
+    const totalDebit = Number(totalDebitAgg._sum.amount || 0);
+    const currentBalance = Number((totalCredit - totalDebit).toFixed(2));
+    const upcomingHostPayouts = Number(
+      upcomingHostPayoutsAgg._sum.sellerAmount || 0,
+    );
+
+    return {
+      status: true,
+      stats: {
+        totalCredit,
+        totalDebit,
+        currentBalance,
+        upcomingHostPayouts,
+      },
+      data: items,
+      pagination: {
+        page: pageInt,
+        limit: limitInt,
+        total,
+        totalPages: Math.ceil(total / limitInt),
+      },
+    };
+  }
   private async getEarningsByMonth(userId: string) {
     const start = startOfYear(new Date());
     const end = endOfYear(new Date());

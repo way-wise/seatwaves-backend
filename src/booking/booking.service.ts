@@ -16,6 +16,7 @@ import {
   Prisma,
   TransactionStatus,
   TransactionType,
+  AdminBalanceType,
 } from '@prisma/client';
 import { NotificationType } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
@@ -31,13 +32,19 @@ import { adminQuerySchema } from './dto/admin.query.dto';
 
 @Injectable()
 export class BookingService {
+  private readonly platformFeePercentage: number;
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationService: NotificationService,
     private readonly emailService: EmailService,
     private readonly stripeService: StripeService,
     private readonly configService: ConfigService,
-  ) {}
+  ) {
+    this.platformFeePercentage = this.configService.get<number>(
+      'PLATFORM_FEE_PERCENTAGE',
+      5, // Default 5%
+    );
+  }
   private readonly logger = new Logger(BookingService.name);
   // ✅ Guest - Create a booking with concurrency protection
   async create(data: createBookingDto, userId: string) {
@@ -829,56 +836,160 @@ Thank you.`;
         seat: {
           select: {
             sellerId: true,
+            seller: {
+              select: {
+                id: true,
+                stripeAccountId: true,
+                stripeOnboardingComplete: true,
+                name: true,
+                email: true,
+              },
+            },
+            eventId: true,
+            event: {
+              select: { id: true, title: true },
+            },
           },
         },
+        transactions: {
+          where: { type: TransactionType.BOOKING_PAYMENT },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
         user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
+          select: { id: true, name: true, email: true },
         },
       },
     });
 
     if (!booking) throw new NotFoundException('Booking not found');
 
+    // Validate OTP for this booking's user
     const otpData = await this.prisma.userOtp.findFirst({
-      where: { otp: otp, type: OtpType.BOOKING },
+      where: { email: booking.user.email, type: OtpType.BOOKING },
     });
-
     if (!otpData) throw new NotFoundException('OTP not found');
-
     if (otpData.otp !== otp) throw new BadRequestException('Invalid OTP');
-
     if (otpData.expiresAt && otpData.expiresAt < new Date())
       throw new BadRequestException('OTP expired');
 
-    await this.prisma.booking.update({
-      where: { id: bookingId },
-      data: { status: BookingStatus.DELIVERED },
-    });
+    // Use the latest payment transaction for amounts; keep it simple
+    const paymentTxn = booking.transactions[0];
+    if (!paymentTxn) {
+      throw new BadRequestException('No payment transaction found for booking');
+    }
 
-    await this.prisma.userOtp.delete({ where: { id: otpData.id } });
+    // 1) Create Stripe transfer first
+    const sellerAccountId = booking.seat.seller?.stripeAccountId;
+    if (!sellerAccountId) {
+      throw new BadRequestException('Seller Stripe account not found');
+    }
+    const sellerAmount = Number(paymentTxn.sellerAmount || 0);
+    let payoutInitiated = false;
+    let transferId: string | undefined;
+    if (sellerAmount > 0) {
+      const transfer = await this.stripeService.createTransferRaw({
+        amount: sellerAmount,
+        currency: 'usd',
+        destination: sellerAccountId,
+        description: 'Seller payout for delivered booking',
+        sourceTransaction: booking.id,
+      });
+      transferId = transfer.id;
+      payoutInitiated = true;
+    }
 
+    // 2) DB updates inside a single transaction. On failure, reverse the transfer
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        // Mark delivered if not already
+        if (booking.status !== BookingStatus.DELIVERED) {
+          await tx.booking.update({
+            where: { id: bookingId },
+            data: { status: BookingStatus.DELIVERED, updatedAt: new Date() },
+          });
+        }
+
+        // Credit platform fee to AdminBalance, once per booking
+        const existingCredit = await tx.adminBalance.findFirst({
+          where: { reference: booking.id, type: AdminBalanceType.CREDIT },
+        });
+        const platformFee = Number(paymentTxn.platformFee || 0);
+        if (!existingCredit && platformFee > 0) {
+          await tx.adminBalance.create({
+            data: {
+              amount: platformFee,
+              reference: booking.id,
+              type: AdminBalanceType.CREDIT,
+              metadata: {
+                reason: 'BOOKING_PLATFORM_FEE',
+                bookingId: booking.id,
+                transactionId: paymentTxn.id,
+              } as any,
+            },
+          });
+        }
+
+        // Invalidate OTP(s) for this email/type
+        await tx.userOtp.deleteMany({
+          where: { email: booking.user.email, type: OtpType.BOOKING },
+        });
+
+        // Create SELLER_PAYOUT transaction tied to the transfer
+        if (payoutInitiated && transferId) {
+          await tx.transaction.create({
+            data: {
+              type: TransactionType.SELLER_PAYOUT,
+              amount: sellerAmount,
+              currency: Currency.USD,
+              provider: PaymentProvider.STRIPE_CONNECT,
+              payeeId: booking.seat.seller.id,
+              bookingId: bookingId,
+              eventId: booking.seat.eventId,
+              parentTransactionId: paymentTxn.id,
+              stripeTransferId: transferId,
+              stripeAccountId: sellerAccountId,
+              description: `Host payout for ${booking.seat.event.title}`,
+              status: TransactionStatus.SUCCESS,
+              processedAt: new Date(),
+            },
+          });
+        }
+      });
+    } catch (err) {
+      // Reverse the transfer if DB transaction failed
+      if (payoutInitiated && transferId) {
+        try {
+          await this.stripeService.reverseTransfer(transferId, sellerAmount);
+        } catch (reversalErr) {
+          this.logger.error(
+            `Failed to reverse transfer ${transferId} after DB failure: ${
+              (reversalErr as any)?.message
+            }`,
+          );
+        }
+      }
+      throw err;
+    }
+
+    // Notifications (non-blocking)
     this.notificationService.sendNotification(booking.user.id, {
       title: 'Booking Verified',
       message: 'Your booking has been verified successfully.',
       type: NotificationType.BOOKING,
-      data: {
-        bookingId: booking.id,
-      },
+      data: { bookingId: booking.id },
     });
 
     this.notificationService.sendNotification(booking.seat.sellerId, {
-      title: 'Booking  Verified',
-      message: 'Your booking has been verified successfully.',
+      title: 'Booking Verified',
+      message: payoutInitiated
+        ? 'A payout has been initiated for your booking.'
+        : 'No payout amount to transfer for this booking.',
       type: NotificationType.BOOKING,
-      data: {
-        bookingId: booking.id,
-      },
+      data: { bookingId: booking.id },
     });
 
+    // Emails (non-blocking)
     this.emailService.sendEmailToUser(booking.user.id, {
       subject: 'Booking Verified',
       text: `Your booking has been verified successfully.`,
@@ -887,13 +998,17 @@ Thank you.`;
 
     this.emailService.sendEmailToUser(booking.seat.sellerId, {
       subject: 'Booking Verified',
-      text: `Your booking has been verified successfully.`,
-      html: `<b>Your booking has been verified successfully.</b>`,
+      text: payoutInitiated
+        ? 'A payout has been initiated for your delivered booking.'
+        : 'No payout amount to transfer for this delivered booking.',
+      html: payoutInitiated
+        ? '<b>A payout has been initiated for your delivered booking.</b>'
+        : '<b>No payout amount to transfer for this delivered booking.</b>',
     });
 
     return {
       status: true,
-      data: booking,
+      data: { bookingId: booking.id, payoutInitiated },
       message: 'Booking verified successfully',
     };
   }

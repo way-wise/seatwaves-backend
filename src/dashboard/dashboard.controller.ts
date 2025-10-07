@@ -32,4 +32,11 @@ export class DashboardController {
   async getAdminDashboard(@Query() query: any) {
     return this.dashboardService.getAdminDashboard(query);
   }
+
+   //admin balance
+   @Permissions('admin.balance.view')
+   @Get('/admin/balance')
+   async getAdminBalance(@Query() query: any) {
+     return this.dashboardService.getAdminBalance(query);
+   }
 }

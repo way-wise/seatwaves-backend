@@ -23,6 +23,8 @@ import { StripeModule } from './stripe/stripe.module';
 import { MessageModule } from './message/message.module';
 import { WishlistModule } from './wishlist/wishlist.module';
 import { ReviewModule } from './review/review.module';
+import { TasksModule } from './tasks/tasks.module';
+import { ScheduleModule } from '@nestjs/schedule';
 @Module({
   imports: [
     // Serve local files under storage/ at /storage/*
@@ -48,7 +50,7 @@ import { ReviewModule } from './review/review.module';
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     CommonModule,
-    // ScheduleModule.forRoot(),
+    ScheduleModule.forRoot(),
     UploadModule,
     AuthModule,
     UsersModule,
@@ -60,6 +62,7 @@ import { ReviewModule } from './review/review.module';
     BookingModule,
     WishlistModule,
     ReviewModule,
+    TasksModule,
     // CategoryModule,
     // WishlistModule,
     // EventModule,

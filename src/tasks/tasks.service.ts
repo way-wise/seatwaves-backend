@@ -1,188 +1,127 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { Queue } from 'bullmq';
 
+import { WebhookEventStatus } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { QUEUES } from 'src/queues/queue.constants';
 
-// Configuration constants
-const DEFAULT_BATCH_SIZE = 50;
-const DEFAULT_BUFFER_DAYS = 30;
-const DEFAULT_CONCURRENT_JOBS = 5;
-const LOCK_TTL = 300000; // 5 minutes
-const JOB_RETRY_ATTEMPTS = 3;
-const JOB_RETRY_DELAY = 5000; // 5 seconds
-
-export interface TaskMetrics {
-  totalProcessed: number;
-  totalCreated: number;
-  totalErrors: number;
-  batchesQueued: number;
-  processingTimeMs: number;
-}
-
-/** Admin-triggerable response */
-export interface RunOnceResult {
-  started: boolean;
-  message?: string;
-  metrics?: TaskMetrics;
-}
-
-interface RecurringEventJobData {
-  experienceId: string;
-  batchId: string;
-  retryCount?: number;
-  // ISO date string (UTC) of the single target date to generate
-  targetDate?: string;
-}
+// Simple retention defaults
+const REDIS_CLEAN_RETENTION_DAYS_DEFAULT = 7; // clean jobs older than 7 days
+const WEBHOOK_PROCESSED_RETENTION_DAYS_DEFAULT = 30; // keep processed webhooks 30 days
+const NOTIFICATION_RETENTION_DAYS_DEFAULT = 180; // remove read notifications older than 180 days
+const LOGIN_HISTORY_RETENTION_DAYS_DEFAULT = 365; // remove login history older than 1 year
 
 @Injectable()
 export class TasksService implements OnModuleDestroy {
   private readonly logger = new Logger(TasksService.name);
-  private readonly batchSize: number;
-  private readonly bufferDays: number;
-  private readonly concurrentJobs: number;
-  private isProcessing = false;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
     @InjectQueue(QUEUES.EVENT) private readonly eventQueue: Queue,
   ) {
-    this.batchSize =
-      this.configService.get<number>('RECURRING_EVENT_BATCH_SIZE') ??
-      DEFAULT_BATCH_SIZE;
-    this.bufferDays =
-      this.configService.get<number>('RECURRING_EVENT_BUFFER_DAYS') ??
-      DEFAULT_BUFFER_DAYS;
-    this.concurrentJobs =
-      this.configService.get<number>('RECURRING_EVENT_CONCURRENT_JOBS') ??
-      DEFAULT_CONCURRENT_JOBS;
-
     this.logger.log(
-      `TasksService initialized: batchSize=${this.batchSize}, bufferDays=${this.bufferDays}, concurrentJobs=${this.concurrentJobs}`,
+      `TasksService initialized (cron jobs: redis clean, project clean)`,
     );
   }
 
-  // /**
-  //  * Monthly auto payout for hosts with positive balances
-  //  * TESTING: runs every 10 minutes (use '0 3 1 * *' for production monthly schedule)
-  //  */
-  // @Cron('*/10 * * * *')
-  // async scheduleMonthlyHostAutoPayout() {
-  //   const enabled = this.configService.get<string>('AUTO_PAYOUT_ENABLED');
-  //   if (enabled && enabled.toLowerCase() === 'false') {
-  //     this.logger.log('Testing auto payout is disabled via config');
-  //     return;
-  //   }
+  /**
+   * Redis cleaning cron: cleans completed/failed BullMQ jobs older than retention window.
+   * Runs daily at 03:00.
+   */
+  @Cron(CronExpression.EVERY_DAY_AT_3AM)
+  async cleanRedisQueue() {
+    try {
+      const retentionDays = Number(
+        this.configService.get('REDIS_CLEAN_RETENTION_DAYS') ??
+          REDIS_CLEAN_RETENTION_DAYS_DEFAULT,
+      );
+      const graceMs = retentionDays * 24 * 60 * 60 * 1000;
 
-  //   const minAmount = Number(
-  //     this.configService.get<string>('AUTO_PAYOUT_MIN_AMOUNT') ?? '10',
-  //   );
-  //   const lockKey = 'monthly-host-auto-payout-lock';
-  //   const lockValue = `${process.pid}-${Date.now()}`;
+      // Clean completed and failed jobs
+      const cleanedCompleted: any = await (this.eventQueue.clean as any)(
+        graceMs,
+        1000,
+        'completed',
+      );
+      const cleanedFailed: any = await (this.eventQueue.clean as any)(
+        graceMs,
+        1000,
+        'failed',
+      );
+      const completedCount = Array.isArray(cleanedCompleted)
+        ? cleanedCompleted.length
+        : Number(cleanedCompleted || 0);
+      const failedCount = Array.isArray(cleanedFailed)
+        ? cleanedFailed.length
+        : Number(cleanedFailed || 0);
 
-  //   try {
-  //     const acquired = await this.acquireDistributedLock(
-  //       lockKey,
-  //       lockValue,
-  //       LOCK_TTL,
-  //     );
-  //     if (!acquired) {
-  //       this.logger.warn('Another instance is already running auto payouts');
-  //       return;
-  //     }
-
-  //     this.logger.log(
-  //       `Starting monthly host auto payouts (minAmount=${minAmount})`,
-  //     );
-
-  //     // Identify candidate hosts: at least one successful booking payment
-  //     const candidates = await this.prisma.transaction.findMany({
-  //       where: {
-  //         type: 'BOOKING_PAYMENT',
-  //         status: 'SUCCESS',
-  //       },
-  //       distinct: ['payeeId'],
-  //       select: { payeeId: true },
-  //       take: 5000,
-  //     });
-
-  //     const hostIds = candidates
-  //       .map((c) => c.payeeId)
-  //       .filter((v): v is string => typeof v === 'string');
-
-  //     if (hostIds.length === 0) {
-  //       this.logger.log('No eligible hosts found for auto payout');
-  //       return;
-  //     }
-
-  //     // Fetch hosts with connected Stripe accounts
-  //     const hosts = await this.prisma.user.findMany({
-  //       where: {
-  //         id: { in: hostIds },
-  //         stripeAccountId: { not: null },
-  //         stripeOnboardingComplete: true,
-  //       },
-  //       select: { id: true, name: true, stripeAccountId: true },
-  //     });
-
-  //     let processed = 0;
-  //     let payoutsCreated = 0;
-  //     let skipped = 0;
-  //     const errors: Array<{ hostId: string; error: string }> = [];
-
-  //     for (const host of hosts) {
-  //       processed++;
-  //       try {
-  //         const balance = await this.stripeService.getHostBalance(host.id);
-  //         const available = Number(balance.availableBalance || 0);
-  //         if (available >= minAmount) {
-  //           const now = new Date();
-  //           const memo = `Monthly auto payout ${now.getFullYear()}-${String(
-  //             now.getMonth() + 1,
-  //           ).padStart(2, '0')}`;
-
-  //           await this.stripeService.processHostPayout({
-  //             hostId: host.id,
-  //             amount: available,
-  //             currency: Currency.USD,
-  //             description: memo,
-  //           } as any);
-
-  //           payoutsCreated++;
-  //           this.logger.log(
-  //             `Auto payout created for host ${host.id} (${host.name}) amount=${available}`,
-  //           );
-  //         } else {
-  //           skipped++;
-  //           this.logger.debug(
-  //             `Host ${host.id} (${host.name}) skipped: available=${available} < min=${minAmount}`,
-  //           );
-  //         }
-  //       } catch (err: any) {
-  //         errors.push({ hostId: host.id, error: err?.message || String(err) });
-  //         this.logger.error(
-  //           `Failed auto payout for host ${host.id}: ${err?.message}`,
-  //           err?.stack,
-  //         );
-  //       }
-  //     }
-
-  //     this.logger.log(
-  //       `Monthly auto payout summary: candidates=${hostIds.length}, hosts=${hosts.length}, processed=${processed}, payouts=${payoutsCreated}, skipped=${skipped}, errors=${errors.length}`,
-  //     );
-  //   } catch (error) {
-  //     this.logger.error('Auto payout job failed', (error as Error)?.stack);
-  //   } finally {
-  //     await this.releaseDistributedLock(lockKey, lockValue);
-  //   }
-  // }
+      this.logger.log(
+        `Redis queue cleaned: completed=${completedCount}, failed=${failedCount}, retentionDays=${retentionDays}`,
+      );
+    } catch (error) {
+      this.logger.error('Redis cleaning failed', (error as Error)?.stack);
+    }
+  }
 
   /**
-   * Test queue connection by adding a simple test job
+   * Project cleanup cron: remove expired OTPs, old processed webhooks, old notifications, login history.
+   * Runs daily at 03:30.
    */
+  @Cron('30 3 * * *')
+  async projectCleanup() {
+    try {
+      const now = new Date();
+      const webhookRetentionDays = Number(
+        this.configService.get('WEBHOOK_PROCESSED_RETENTION_DAYS') ??
+          WEBHOOK_PROCESSED_RETENTION_DAYS_DEFAULT,
+      );
+      const notifRetentionDays = Number(
+        this.configService.get('NOTIFICATION_RETENTION_DAYS') ??
+          NOTIFICATION_RETENTION_DAYS_DEFAULT,
+      );
+      const loginRetentionDays = Number(
+        this.configService.get('LOGIN_HISTORY_RETENTION_DAYS') ??
+          LOGIN_HISTORY_RETENTION_DAYS_DEFAULT,
+      );
+
+      const webhookCutoff = new Date(
+        now.getTime() - webhookRetentionDays * 24 * 60 * 60 * 1000,
+      );
+      const notifCutoff = new Date(
+        now.getTime() - notifRetentionDays * 24 * 60 * 60 * 1000,
+      );
+      const loginCutoff = new Date(
+        now.getTime() - loginRetentionDays * 24 * 60 * 60 * 1000,
+      );
+
+      const [otpDel, webhooksDel, notifDel, loginDel] =
+        await this.prisma.$transaction([
+          this.prisma.userOtp.deleteMany({ where: { expiresAt: { lt: now } } }),
+          this.prisma.webhookEvent.deleteMany({
+            where: {
+              status: WebhookEventStatus.PROCESSED,
+              processedAt: { lt: webhookCutoff },
+            },
+          }),
+          this.prisma.notification.deleteMany({
+            where: { readAt: { lt: notifCutoff } },
+          }),
+          this.prisma.loginHistory.deleteMany({
+            where: { createdAt: { lt: loginCutoff } },
+          }),
+        ]);
+
+      this.logger.log(
+        `Project cleanup completed: otp=${otpDel.count}, webhooks=${webhooksDel.count}, notifications=${notifDel.count}, loginHistory=${loginDel.count}`,
+      );
+    } catch (error) {
+      this.logger.error('Project cleanup failed', (error as Error)?.stack);
+    }
+  }
 
   async onModuleDestroy() {
     this.logger.log('TasksService shutting down...');

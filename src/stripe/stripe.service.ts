@@ -393,11 +393,11 @@ export class StripeService {
       const total = subtotal - discountAmount + vat + tax;
 
       const seller = seat.event.seller;
-      // if (!seller.stripeAccountId || !seller.stripeOnboardingComplete) {
-      //   throw new BadRequestException(
-      //     'Seller has not completed Stripe onboarding',
-      //   );
-      // }
+      if (!seller.stripeAccountId || !seller.stripeOnboardingComplete) {
+        throw new BadRequestException(
+          'Seller has not completed Stripe onboarding',
+        );
+      }
 
       let appliedDiscount = 0;
       let finalAmount = total;
@@ -424,7 +424,7 @@ export class StripeService {
               currency: 'usd',
               product_data: {
                 name: ctx.seat.event.title,
-                description: 'Event booking',
+                description: 'Seat booking',
               },
               unit_amount: Math.round(ctx.finalAmount * 100),
             },
@@ -437,10 +437,10 @@ export class StripeService {
         // expires_at: Math.floor(Date.now() / 1000) + 10 * 60,
         customer: customer.id,
         payment_intent_data: {
-          application_fee_amount: Math.round(ctx.platformFee * 100),
-          transfer_data: { destination: ctx.seller.stripeAccountId as string },
+          // application_fee_amount: Math.round(ctx.platformFee * 100),
+          // transfer_data: { destination: ctx.seller.stripeAccountId as string },
           metadata: {
-            eventId: ctx.seat.event.id || '',
+            seatId: ctx.seat.id || '',
             sellerId: ctx.seller.id,
             customerId: customer.id,
             couponId: data.couponId || '',
@@ -448,11 +448,6 @@ export class StripeService {
             paymentType: 'booking_payment',
             deliveryType: data.deliveryType,
           },
-        },
-        metadata: {
-          eventId: ctx.seat.event.id,
-          customerId: customer.id,
-          sellerId: ctx.seller.id,
         },
       });
 
@@ -1781,6 +1776,108 @@ export class StripeService {
         throw error;
       }
       throw new InternalServerErrorException('Failed to create setup intent');
+    }
+  }
+
+  /**
+   *
+   * Stripe createTransfer
+   */
+
+  async createTransfer({
+    amount,
+    currency,
+    destination,
+    description,
+    sourceTransaction,
+  }: {
+    amount: number;
+    currency: string;
+    destination: string;
+    description?: string;
+    sourceTransaction?: string;
+  }) {
+    try {
+      const transfer = await this.stripe.transfers.create({
+        amount: Math.round(amount * 100),
+        currency,
+        destination,
+        description,
+        metadata: {
+          sellerId: destination,
+          bookingId: sourceTransaction || '',
+        },
+      });
+
+      // Record payout transaction tied to the booking using a safe helper
+      if (sourceTransaction) {
+        await this.transactionService.processHostPayout(
+          sourceTransaction,
+          transfer.id,
+          destination,
+        );
+      }
+
+      return transfer;
+    } catch (error) {
+      this.logger.error('Failed to create transfer:', error);
+      throw new InternalServerErrorException('Failed to create transfer');
+    }
+  }
+
+  /**
+   * Create a Stripe transfer ONLY (no DB writes). Useful when caller needs to wrap
+   * all DB changes in a single Prisma transaction.
+   */
+  async createTransferRaw({
+    amount,
+    currency,
+    destination,
+    description,
+    sourceTransaction,
+  }: {
+    amount: number;
+    currency: string;
+    destination: string;
+    description?: string;
+    sourceTransaction?: string;
+  }) {
+    try {
+      const transfer = await this.stripe.transfers.create({
+        amount: Math.round(amount * 100),
+        currency,
+        destination,
+        description,
+        metadata: {
+          sellerId: destination,
+          bookingId: sourceTransaction || '',
+        },
+      });
+      return transfer;
+    } catch (error) {
+      this.logger.error('Failed to create transfer (raw):', error);
+      throw new InternalServerErrorException('Failed to create transfer');
+    }
+  }
+
+  /**
+   * Reverse a Stripe transfer (best-effort compensation if DB transaction fails).
+   */
+  async reverseTransfer(transferId: string, amount?: number) {
+    try {
+      const params: any = {};
+      if (typeof amount === 'number' && amount > 0) {
+        params.amount = Math.round(amount * 100);
+      }
+      const reversal = await this.stripe.transfers.createReversal(
+        transferId,
+        params,
+      );
+      return reversal;
+    } catch (error) {
+      this.logger.error('Failed to reverse transfer:', error);
+      // Do not throw further to avoid masking original error; bubble up in caller
+      throw new InternalServerErrorException('Failed to reverse transfer');
     }
   }
 
