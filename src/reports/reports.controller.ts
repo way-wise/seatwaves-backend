@@ -69,7 +69,6 @@ export class ReportsController {
   // Assign report to self or another admin
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('report.update')
-  @UsePipes(new ZodValidationPipe(assignReportSchema))
   @Post(':id/assign')
   assign(@Param('id') id: string, @Body() body: AssignReportDto, @Req() req) {
     return this.reportsService.assign(id, body, req.user.userId);
@@ -78,7 +77,6 @@ export class ReportsController {
   // Update report status
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('report.update')
-  @UsePipes(new ZodValidationPipe(updateReportStatusSchema))
   @Put(':id/status')
   updateStatus(
     @Param('id') id: string,
@@ -91,7 +89,6 @@ export class ReportsController {
   // Update admin notes
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('report.update')
-  @UsePipes(new ZodValidationPipe(updateNotesSchema))
   @Put(':id/notes')
   updateNotes(
     @Param('id') id: string,

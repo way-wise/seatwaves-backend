@@ -238,10 +238,12 @@ export class ReportsService {
   }
 
   async assign(id: string, dto: AssignReportDto, actorId: string) {
+    const parse = assignReportSchema.safeParse(dto);
+    if (!parse.success) throw new BadRequestException(parse.error.errors);
     const report = await this.prisma.report.findUnique({ where: { id } });
     if (!report) throw new NotFoundException('Report not found');
 
-    const assignedToId = dto.assignedToId ?? actorId;
+    const assignedToId = parse.data.assignedToId ?? actorId;
 
     // Ensure target user exists
     const user = await this.prisma.user.findUnique({

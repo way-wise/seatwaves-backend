@@ -17,6 +17,7 @@ export type UpdateReportStatusDto = z.infer<typeof updateReportStatusSchema>;
 export const assignReportSchema = z.object({
   assignedToId: z.string().optional(),
 });
+
 export type AssignReportDto = z.infer<typeof assignReportSchema>;
 
 export const updateNotesSchema = z.object({
