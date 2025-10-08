@@ -28,6 +28,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { HelpModule } from './help/help.module';
 import { FeedbackModule } from './feedback/feedback.module';
 import { AmenityModule } from './amenity/amenity.module';
+import { WebhookModule } from './webhook/webhook.module';
 @Module({
   imports: [
     // Serve local files under storage/ at /storage/*
@@ -68,6 +69,7 @@ import { AmenityModule } from './amenity/amenity.module';
     TasksModule,
     HelpModule,
     FeedbackModule,
+    WebhookModule,
     // CategoryModule,
     // WishlistModule,
     // EventModule,
