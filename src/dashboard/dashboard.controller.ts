@@ -33,10 +33,16 @@ export class DashboardController {
     return this.dashboardService.getAdminDashboard(query);
   }
 
-   //admin balance
-   @Permissions('admin.balance.view')
-   @Get('/admin/balance')
-   async getAdminBalance(@Query() query: any) {
-     return this.dashboardService.getAdminBalance(query);
-   }
+  //admin balance
+  @Permissions('admin.balance.view')
+  @Get('/admin/balance')
+  async getAdminBalance(@Query() query: any) {
+    return this.dashboardService.getAdminBalance(query);
+  }
+
+  @Permissions('admin.dashboard.view')
+  @Get('/admin/analysis')
+  async getAdminAnalysis(@Query() query: any) {
+    return this.dashboardService.getAdminAnalysis(query);
+  }
 }

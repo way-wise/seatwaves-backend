@@ -15,11 +15,15 @@ import {
   DashboardQuerySchema,
 } from './dto/dashboard.query.dto';
 import { AdminDashboardQuerySchema } from './dto/admin.dashboard.query.dto';
-import { AdminBalanceType } from '@prisma/client';
+import { AdminBalanceType, Currency } from '@prisma/client';
+import { StripeService } from 'src/stripe/stripe.service';
 
 @Injectable()
 export class DashboardService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly stripeService: StripeService,
+  ) {}
 
   async getDashboardData(userId: string, query: DashboardQueryDto) {
     const parsedQuery = DashboardQuerySchema.parse(query);
@@ -662,11 +666,56 @@ export class DashboardService {
     ]);
 
     // Omit experience-based chart, not present in schema
-    const revenueByExperience: any[] = [];
+    // Compute revenue by event (top items) and by category using successful booking payments
+    const revByEventAgg = await this.prisma.transaction.groupBy({
+      by: ['eventId'],
+      where: {
+        type: 'BOOKING_PAYMENT',
+        status: 'SUCCESS',
+        createdAt: { gte: startDate, lte: endDate },
+        eventId: { not: null },
+      },
+      _sum: { amount: true },
+    });
 
-    // Revenue by category (pie)
-    // Category breakdown omitted, as bookings not directly linked to categories in current schema
-    const revenueByCategory: any[] = [];
+    const eventIds = revByEventAgg
+      .map((r) => r.eventId)
+      .filter((id): id is string => Boolean(id));
+
+    const events = eventIds.length
+      ? await this.prisma.event.findMany({
+          where: { id: { in: eventIds } },
+          select: {
+            id: true,
+            title: true,
+            category: { select: { name: true } },
+          },
+        })
+      : [];
+    const eventById = new Map(events.map((e) => [e.id, e]));
+
+    const revenueByEvent = revByEventAgg
+      .map((r) => {
+        const ev = r.eventId ? eventById.get(r.eventId) : undefined;
+        return {
+          eventId: r.eventId,
+          name: ev?.title || 'Unknown',
+          total: Number(r._sum.amount || 0),
+        };
+      })
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 5);
+
+    const categoryTotals = new Map<string, number>();
+    for (const r of revByEventAgg) {
+      const ev = r.eventId ? eventById.get(r.eventId) : undefined;
+      const catName = ev?.category?.name || 'Uncategorized';
+      const prev = categoryTotals.get(catName) || 0;
+      categoryTotals.set(catName, prev + Number(r._sum.amount || 0));
+    }
+    const revenueByCategory = Array.from(categoryTotals.entries()).map(
+      ([category, total]) => ({ category, total }),
+    );
 
     // Trends (daily) for bookings and revenue
     const bookingsForTrend = await this.prisma.booking.findMany({
@@ -733,7 +782,7 @@ export class DashboardService {
           status: x.status,
           count: x._count._all,
         })),
-        revenueByExperience,
+        revenueByEvent,
         revenueByCategory,
         bookingsTrend, // line
         revenueTrend, // line
@@ -857,6 +906,56 @@ export class DashboardService {
       },
     };
   }
+
+  async getAdminAnalysis(query: any) {
+    const parsedQuery = AdminDashboardQuerySchema.safeParse(query);
+    const duration = parsedQuery.success ? parsedQuery.data.duration : '7d';
+    const { startDate, endDate } = this.getDateRange(duration);
+
+    // Optional currency (defaults to USD) - use validated DTO when present
+    const currencyParam =
+      parsedQuery.success && parsedQuery.data.currency
+        ? String(parsedQuery.data.currency).toUpperCase()
+        : 'USD';
+    const currency: Currency = (Currency as any)[currencyParam] || Currency.USD;
+
+    // Stripe platform balances and payouts (latest 100 per status)
+    const [stripeBalance, stripePayouts, totalCredit, totalDebit] =
+      await Promise.all([
+        this.stripeService.getPlatformBalance(currency),
+        this.stripeService.getPlatformPayoutsSummary(currency),
+        this.prisma.adminBalance.aggregate({
+          where: {
+            type: 'CREDIT',
+          },
+          _sum: { amount: true },
+        }),
+
+        this.prisma.adminBalance.aggregate({
+          where: {
+            type: 'DEBIT',
+          },
+          _sum: { amount: true },
+        }),
+      ]);
+    const totalCreditAmount = Number(totalCredit._sum.amount ?? 0);
+    const totalDebitAmount = Number(totalDebit._sum.amount ?? 0);
+
+    const response = {
+      status: true,
+      duration,
+      dateRange: { startDate, endDate },
+      stripe: {
+        balance: stripeBalance, // available, pending, instantAvailable
+        payouts: stripePayouts, // paid, pending, inTransit, failed
+      },
+      currency,
+      availableToWithdraw: totalCreditAmount - totalDebitAmount,
+    };
+
+    return response;
+  }
+
   private async getEarningsByMonth(userId: string) {
     const start = startOfYear(new Date());
     const end = endOfYear(new Date());

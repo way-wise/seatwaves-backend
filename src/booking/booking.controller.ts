@@ -82,7 +82,7 @@ export class BookingController {
 
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('booking.read')
-  @Get('/host/app')
+  @Get('/seller/app')
   async findHostBookings(@Query() query: any, @Req() req) {
     if (!req.user) {
       throw new UnauthorizedException('User not found');

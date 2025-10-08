@@ -1861,6 +1861,65 @@ export class StripeService {
   }
 
   /**
+   * Get current Stripe platform balance (available and pending) aggregated by a target currency.
+   * Defaults to USD. Amounts returned in major units (e.g., dollars).
+   */
+  async getPlatformBalance(targetCurrency: Currency = Currency.USD) {
+    const currency = (targetCurrency || Currency.USD).toString().toLowerCase();
+    const bal = await this.stripe.balance.retrieve();
+    const sumByCurrency = (
+      items: Array<{ amount: number; currency: string }>,
+    ) =>
+      (items || [])
+        .filter((i) => (i.currency || '').toLowerCase() === currency)
+        .reduce((sum, i) => sum + (i.amount || 0), 0) / 100; // convert to major units
+    return {
+      available: sumByCurrency((bal as any).available || []),
+      pending: sumByCurrency((bal as any).pending || []),
+      instantAvailable: sumByCurrency((bal as any).instant_available || []),
+      currency: targetCurrency,
+      raw: bal,
+    };
+  }
+
+  /**
+   * Get platform payouts summary by status for a given currency.
+   * Note: Limits to the latest 100 payouts per status for performance.
+   */
+  async getPlatformPayoutsSummary(targetCurrency: Currency = Currency.USD) {
+    const currency = (targetCurrency || Currency.USD).toString().toLowerCase();
+    const sum = (items: Stripe.ApiList<Stripe.Payout> | Stripe.Payout[]) => {
+      const arr = Array.isArray(items) ? items : items.data;
+      return (
+        (arr || [])
+          .filter((p) => (p.currency || '').toLowerCase() === currency)
+          .reduce((s, p) => s + (p.amount || 0), 0) / 100
+      ); // major units
+    };
+
+    const [paid, pending, inTransit, failed] = await Promise.all([
+      this.stripe.payouts.list({ limit: 100, status: 'paid' }),
+      this.stripe.payouts.list({ limit: 100, status: 'pending' }),
+      this.stripe.payouts.list({ limit: 100, status: 'in_transit' }),
+      this.stripe.payouts.list({ limit: 100, status: 'failed' }),
+    ]);
+
+    return {
+      currency: targetCurrency,
+      paid: sum(paid),
+      pending: sum(pending),
+      inTransit: sum(inTransit),
+      failed: sum(failed),
+      counts: {
+        paid: paid.data.length,
+        pending: pending.data.length,
+        inTransit: inTransit.data.length,
+        failed: failed.data.length,
+      },
+    };
+  }
+
+  /**
    * Reverse a Stripe transfer (best-effort compensation if DB transaction fails).
    */
   async reverseTransfer(transferId: string, amount?: number) {

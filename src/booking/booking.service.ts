@@ -733,29 +733,32 @@ Thank you.`;
       where: { id: bookingId },
       include: {
         user: { select: { id: true, name: true, email: true, avatar: true } },
-
-        transactions: {
-          orderBy: { createdAt: 'desc' },
+        seat: {
           select: {
             id: true,
-            type: true,
-            status: true,
-            amount: true,
-            currency: true,
-            provider: true,
+            seatNumber: true,
+            seatId: true,
+            eventId: true,
+            price: true,
+            discount: true,
+            discountType: true,
+            description: true,
+            note: true,
+            metadata: true,
+            isBooked: true,
             createdAt: true,
-            processedAt: true,
-            externalTxnId: true,
-            stripePaymentIntent: true,
-            stripeChargeId: true,
-            stripeTransferId: true,
-            platformFee: true,
-            sellerAmount: true,
-            payer: { select: { id: true, name: true, email: true } },
-            payee: { select: { id: true, name: true, email: true } },
+            updatedAt: true,
+            seller: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                avatar: true,
+              },
+            },
           },
         },
-        rooms: { select: { id: true } },
+        transactions: true,
       },
     });
 
