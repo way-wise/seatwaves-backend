@@ -78,6 +78,7 @@ const permissionGroups: Record<string, string[]> = {
     'message.delete.room',
   ],
   review: ['review.create', 'review.update', 'review.read', 'review.reply'],
+  report: ['report.create', 'report.update', 'report.read', 'report.reply'],
 
   content: [
     'content.read',
@@ -133,6 +134,7 @@ const permissionGroups: Record<string, string[]> = {
     'admin.cms.view',
     'admin.balance.view',
     'admin.analysis.view',
+    'admin.report.view',
   ],
   // Loyalty / Points permissions
   points: ['points.read', 'points.update', 'points.award', 'points.redeem'],
@@ -246,6 +248,10 @@ const roles: Record<string, string[]> = {
     'user.settings.view',
     'user.helpcenter.view',
     'coupon.read',
+    'report.read',
+    'report.update',
+    'report.delete',
+    'report.manage',
   ],
   USER: [
     'event.read',
@@ -279,7 +285,11 @@ const roles: Record<string, string[]> = {
     'user.settings.view',
     'user.helpcenter.view',
     'coupon.read',
-    'event.read',
+    'report.read',
+    'report.create',
+    'report.update',
+    'report.delete',
+    'report.manage',
   ],
 };
 

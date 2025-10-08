@@ -94,6 +94,9 @@ model User {
   tierHistories            TierHistory[]
   WishlistItem             WishlistItem[]
   Seat                     Seat[]
+  reportsFiled             Report[]               @relation("ReportsFiled")
+  reportsAgainst           Report[]               @relation("ReportsAgainst")
+  assignedReports          Report[]               @relation("ReportAssignee")
 
   @@index([name])
   @@index([email])
@@ -312,6 +315,7 @@ model Event {
   category     Category       @relation(fields: [categoryId], references: [id])
   WishlistItem WishlistItem[]
   EventAmenity EventAmenity[]
+  Report       Report[]
 
   @@index([eventId])
   @@map("events")
@@ -379,6 +383,7 @@ model Booking {
   deletedAt     DateTime?
   transactions  Transaction[]
   rooms         MessageRoom[]
+  Report        Report[]
 
   @@index([userId])
   @@index([status])
@@ -451,6 +456,7 @@ model Transaction {
 
   //track withdrawal status
   payoutStatus payoutStatus @default(NULL)
+  Report       Report[]
 
   @@index([type])
   @@index([status])
@@ -610,6 +616,7 @@ model Message {
   type       MessageType @default(TEXT)
   sentAt     DateTime    @default(now())
   isRead     Boolean     @default(false)
+  Report     Report[]
 
   @@index([isRead])
   @@index([sentAt])
@@ -1216,4 +1223,100 @@ model WishlistItem {
   @@index([eventId])
   @@index([createdAt])
   @@map("wishlist_items")
+}
+
+enum ReportTargetType {
+  USER
+  BOOKING
+  EVENT
+  TRANSACTION
+  MESSAGE
+  OTHER
+}
+
+// The nature of the report
+enum ReportType {
+  FRAUD
+  SCAM
+  SPAM
+  ABUSE
+  PAYMENT_ISSUE
+  BOOKING_ISSUE
+  EVENT_ISSUE
+  PLATFORM_BUG
+  OTHER
+}
+
+// Lifecycle status for moderation
+enum ReportStatus {
+  PENDING
+  IN_REVIEW
+  ESCALATED
+  RESOLVED
+  REJECTED
+}
+
+// Optional severity to prioritize queues
+enum ReportSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model Report {
+  id         String @id @default(ulid())
+  // Who filed the report (user or seller; both are User with different roles)
+  reporterId String
+  reporter   User   @relation("ReportsFiled", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  // Who/what is being reported
+  reportedUserId String?
+  reportedUser   User?   @relation("ReportsAgainst", fields: [reportedUserId], references: [id], onDelete: SetNull)
+
+  targetType ReportTargetType @default(OTHER)
+
+  // Optional targets to pin the report to a specific resource
+  bookingId String?
+  booking   Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  eventId String?
+  event   Event?  @relation(fields: [eventId], references: [id], onDelete: SetNull)
+
+  transactionId String?
+  transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  messageId String?
+  message   Message? @relation(fields: [messageId], references: [id], onDelete: SetNull)
+
+  // Classification & content
+  type        ReportType     @default(OTHER)
+  severity    ReportSeverity @default(MEDIUM)
+  subject     String?
+  description String?        @db.Text
+  attachments String[]       @default([]) // optional evidence (URLs)
+  metadata    Json?
+
+  // Moderation workflow
+  status       ReportStatus @default(PENDING)
+  assignedToId String?
+  assignedTo   User?        @relation("ReportAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedAt   DateTime?
+  adminNotes   String?      @db.Text
+  resolvedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([type])
+  @@index([targetType])
+  @@index([reporterId])
+  @@index([reportedUserId])
+  @@index([bookingId])
+  @@index([eventId])
+  @@index([transactionId])
+  @@index([messageId])
+  @@index([createdAt])
+  @@map("reports")
 }

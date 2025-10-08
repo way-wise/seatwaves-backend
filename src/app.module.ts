@@ -29,6 +29,7 @@ import { HelpModule } from './help/help.module';
 import { FeedbackModule } from './feedback/feedback.module';
 import { AmenityModule } from './amenity/amenity.module';
 import { WebhookModule } from './webhook/webhook.module';
+import { ReportsModule } from './reports/reports.module';
 @Module({
   imports: [
     // Serve local files under storage/ at /storage/*
@@ -76,6 +77,7 @@ import { WebhookModule } from './webhook/webhook.module';
     AmenityModule,
     // BlogModule,
     StripeModule,
+    ReportsModule,
     // TransactionModule,
     // NotificationModule,
     // EmailModule,
