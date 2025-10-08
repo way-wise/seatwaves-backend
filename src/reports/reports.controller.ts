@@ -15,17 +15,14 @@ import { Permissions } from 'src/common/decorators/permissions.decorator';
 import { PermissionsGuard } from 'src/common/guards/permissions.guard';
 import { ZodQueryValidationPipe } from 'src/common/zodQueryValidationPipe';
 import { ZodValidationPipe } from 'src/common/zodValidationPipe';
-import { ReportsService } from './reports.service';
 import { CreateReportDto, createReportSchema } from './dto/create-report.dto';
-import { ReportQueryDto, reportQuerySchema } from './dto/query.dto';
 import {
   AssignReportDto,
-  assignReportSchema,
   UpdateNotesDto,
-  updateNotesSchema,
   UpdateReportStatusDto,
-  updateReportStatusSchema,
 } from './dto/manage.dto';
+import { ReportQueryDto, reportQuerySchema } from './dto/query.dto';
+import { ReportsService } from './reports.service';
 
 @Controller('reports')
 export class ReportsController {
