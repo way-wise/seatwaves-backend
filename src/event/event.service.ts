@@ -1,5 +1,10 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { Injectable, Logger, NotAcceptableException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotAcceptableException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Queue } from 'bullmq';
 import { NotificationService } from 'src/notification/notification.service';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -610,5 +615,88 @@ export class EventService {
     };
   }
 
-  //
+  async adminGetSingleEventById(id: string, query: any) {
+    const parseQuery = eventQuerySchema.safeParse(query);
+    if (!parseQuery.success)
+      throw new NotAcceptableException('Invalid query parameters');
+
+    // Fetch event with related info for admin view
+    const event = await this.prisma.event.findUnique({
+      where: { id },
+      include: {
+        category: true,
+        seller: {
+          select: { id: true, name: true, email: true, avatar: true },
+        },
+        _count: { select: { seats: true, reviews: true } },
+      },
+    });
+
+    if (!event) throw new NotFoundException('Event not found');
+
+    // Build base where for bookings belonging to this event
+    const whereBookingBase = { deletedAt: null, seat: { eventId: id } };
+    const paidStatuses = ['CONFIRMED', 'SHIPPED', 'DELIVERED'] as const;
+
+    const [
+      bookingsTotalCount,
+      statusBreakdown,
+      paidAgg,
+      totalSeats,
+      availableSeats,
+      reviewBreakdown,
+      txnAgg,
+    ] = await this.prisma.$transaction([
+      this.prisma.booking.count({ where: whereBookingBase }),
+      this.prisma.booking.groupBy({
+        by: ['status'],
+        where: whereBookingBase,
+        _count: { _all: true },
+        orderBy: { status: 'asc' },
+      }),
+      this.prisma.booking.aggregate({
+        where: { ...whereBookingBase, status: { in: paidStatuses as any } },
+        _sum: { total: true },
+        _count: { _all: true },
+      }),
+      this.prisma.seat.count({ where: { eventId: id } }),
+      this.prisma.seat.count({ where: { eventId: id, isBooked: false } }),
+      this.prisma.review.groupBy({
+        by: ['status'],
+        where: { eventId: id },
+        _count: { _all: true },
+        orderBy: { status: 'asc' },
+      }),
+      this.prisma.transaction.aggregate({
+        where: {
+          eventId: id,
+          type: 'BOOKING_PAYMENT',
+          status: 'SUCCESS',
+        },
+        _sum: { amount: true, platformFee: true, sellerAmount: true },
+      }),
+    ]);
+
+    const summary = {
+      totalRevenue: Number(txnAgg._sum?.amount || 0),
+      totalPlatformFees: Number(txnAgg._sum?.platformFee || 0),
+      totalSellerPayouts: Number(txnAgg._sum?.sellerAmount || 0),
+      totalTickets: totalSeats,
+      availableTickets: availableSeats,
+      soldTickets: totalSeats - availableSeats,
+      statusBreakdown,
+      reviews: reviewBreakdown,
+    };
+
+    // Add a 'date' alias for frontend compatibility (maps to startTime)
+    const eventForClient: any = { ...event, date: event.startTime };
+
+    return {
+      status: true,
+      data: {
+        event: eventForClient,
+        summary,
+      },
+    };
+  }
 }

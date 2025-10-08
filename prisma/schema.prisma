@@ -311,6 +311,7 @@ model Event {
   categoryId   String
   category     Category       @relation(fields: [categoryId], references: [id])
   WishlistItem WishlistItem[]
+  EventAmenity EventAmenity[]
 
   @@index([eventId])
   @@map("events")
@@ -461,6 +462,35 @@ model Transaction {
   @@index([parentTransactionId])
   @@index([createdAt])
   @@map("transactions")
+}
+
+model Amenity {
+  id          String         @id @default(ulid())
+  name        String
+  slug        String         @unique @db.VarChar(255)
+  icon        String?
+  description String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  events      EventAmenity[]
+
+  @@index([createdAt])
+  @@index([name])
+  @@index([slug])
+  @@map("amenities")
+}
+
+model EventAmenity {
+  id        String  @id @default(ulid())
+  event     Event   @relation(fields: [eventId], references: [id])
+  eventId   String
+  amenity   Amenity @relation(fields: [amenityId], references: [id])
+  amenityId String
+
+  @@unique([eventId, amenityId])
+  @@index([amenityId])
+  @@index([eventId])
+  @@map("event_amenities")
 }
 
 enum payoutStatus {

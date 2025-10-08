@@ -25,6 +25,9 @@ import { WishlistModule } from './wishlist/wishlist.module';
 import { ReviewModule } from './review/review.module';
 import { TasksModule } from './tasks/tasks.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { HelpModule } from './help/help.module';
+import { FeedbackModule } from './feedback/feedback.module';
+import { AmenityModule } from './amenity/amenity.module';
 @Module({
   imports: [
     // Serve local files under storage/ at /storage/*
@@ -63,10 +66,12 @@ import { ScheduleModule } from '@nestjs/schedule';
     WishlistModule,
     ReviewModule,
     TasksModule,
+    HelpModule,
+    FeedbackModule,
     // CategoryModule,
     // WishlistModule,
     // EventModule,
-    // AmenityModule,
+    AmenityModule,
     // BlogModule,
     StripeModule,
     // TransactionModule,

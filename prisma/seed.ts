@@ -131,6 +131,8 @@ const permissionGroups: Record<string, string[]> = {
     'admin.activity.view',
     'admin.point.view',
     'admin.cms.view',
+    'admin.balance.view',
+    'admin.analysis.view',
   ],
   // Loyalty / Points permissions
   points: ['points.read', 'points.update', 'points.award', 'points.redeem'],

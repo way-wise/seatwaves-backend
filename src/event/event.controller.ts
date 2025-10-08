@@ -29,16 +29,23 @@ export class EventController {
     return this.eventService.getEvent(id);
   }
 
+  @Get('/admin/all')
+  // @Permissions('read:event')
+  getEventsAdmin(@Query() query) {
+    return this.eventService.getAllEventsAdmin(query);
+  }
+
+  //admin get single event
+  @Permissions('event.read')
+  @Get('/admin/events/:id')
+  async adminGetSingleEventById(@Param('id') id: string, @Query() query: any) {
+    return this.eventService.adminGetSingleEventById(id, query);
+  }
+
   //get events by id
   @Get(':id/seats')
   getSeatsByEventId(@Param('id') id: string, @Query() query) {
     return this.eventService.getSeatsByEventId(id, query);
-  }
-
-  @Get('/admin')
-  // @Permissions('read:event')
-  getEventsAdmin(@Query() query) {
-    return this.eventService.getAllEventsAdmin(query);
   }
 
   @Get('/seller/:id')
