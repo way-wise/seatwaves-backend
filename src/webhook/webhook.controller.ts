@@ -25,7 +25,6 @@ export class WebhookController {
     // Pinning example: { apiVersion: '2020-08-27' }
     this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
   }
-
   @Post('stripe')
   @ApiOperation({ summary: 'Handle Stripe webhook events' })
   @ApiResponse({
