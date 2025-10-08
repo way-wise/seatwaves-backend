@@ -470,6 +470,13 @@ export class AuthService {
       sameSite: 'lax',
     });
 
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        lastLoginAt: new Date(),
+      },
+    });
+
     const ADMIN = user.roles.find((role) => role.role.name === 'ADMIN');
     const SELLER = user.roles.find((role) => role.role.name === 'SELLER');
 
