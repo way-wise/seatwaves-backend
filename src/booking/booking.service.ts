@@ -51,6 +51,48 @@ export class BookingService {
     return { status: true, message: 'Booking created successfully' };
   }
 
+  async upcomingBooking(userId: string) {
+    if (!userId) throw new NotFoundException('This user does not exist');
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    if (!user) throw new NotFoundException('This user does not exist');
+
+    const bookings = await this.prisma.booking.findMany({
+      where: {
+        userId,
+        status: BookingStatus.CONFIRMED,
+      },
+
+      include: {
+        ticket: {
+          select: {
+            id: true,
+            seatDetails: true,
+            note: true,
+            seller: {
+              select: {
+                id: true,
+                name: true,
+                avatar: true,
+              },
+            },
+            event: {
+              select: {
+                title: true,
+                startTime: true,
+                endTime: true,
+                image: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return { status: true, data: bookings };
+  }
+
   // ✅ Guest - View own bookings
   async findByGuest(userId: string, query: any) {
     if (!userId) throw new NotFoundException('This user does not exist');
@@ -60,9 +102,6 @@ export class BookingService {
     if (!user) throw new NotFoundException('This user does not exist');
 
     const parseQuery = queryBookingSchema.safeParse(query);
-
-    //TODO: add pagination and filters
-    //TODO: add sorting
 
     if (!parseQuery.success) {
       throw new NotAcceptableException(parseQuery.error.errors);
@@ -87,7 +126,11 @@ export class BookingService {
     if (search) {
       where.OR = [
         { id: { equals: search } },
-        { experience: { name: { contains: search, mode: 'insensitive' } } },
+        {
+          ticket: {
+            event: { title: { contains: search, mode: 'insensitive' } },
+          },
+        },
       ];
     }
 
@@ -103,28 +146,43 @@ export class BookingService {
         orderBy: { [sortBy as string]: sortOrder },
         select: {
           id: true,
+          price: true,
+          discount: true,
           total: true,
           status: true,
-
           createdAt: true,
-          updatedAt: true,
+          ticket: {
+            select: {
+              event: {
+                select: {
+                  id: true,
+                  title: true,
+                },
+              },
+              seller: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
         },
       }),
       this.prisma.booking.count({
         where,
       }),
     ]);
-    const hasNext = skip + parseInt(limit) < total;
-    const hasPrev = skip > 0;
+
     return {
       status: true,
       data: bookings,
-      total,
-      page: parseInt(page),
-      limit: parseInt(limit),
-      totalPages: Math.ceil(total / parseInt(limit)),
-      hasNext,
-      hasPrev,
+      meta: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(total / parseInt(limit)),
+      },
     };
   }
 

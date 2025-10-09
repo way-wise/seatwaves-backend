@@ -35,6 +35,13 @@ export class EventController {
     return this.eventService.getAllEventsAdmin(query);
   }
 
+  //seller events
+  @UseGuards(AuthGuard('jwt'))
+  @Get('/seller/all')
+  getEventsSeller(@Query() query, @Req() req) {
+    return this.eventService.getEventsSeller(query, req.user.userId);
+  }
+
   //admin get single event
   @Permissions('event.read')
   @Get('/admin/events/:id')
@@ -76,7 +83,7 @@ export class EventController {
   @UseGuards(AuthGuard('jwt'))
   @Put('/seats/:id')
   @Permissions('update:event')
-  updateSeat(@Param('id') id: string, @Body() body: any) {
-    return this.eventService.updateticket(id, body);
+  updateSeat(@Param('id') id: string, @Body() body: any, @Req() req) {
+    return this.eventService.updateticket(id, body, req.user.userId);
   }
 }

@@ -22,7 +22,7 @@ import { Permissions } from 'src/common/decorators/permissions.decorator';
 export class BookingController {
   constructor(private readonly bookingService: BookingService) {}
 
-  // ✅ Guest - Create booking
+  // ✅ User - Create booking
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('booking.create')
   @Post()
@@ -36,7 +36,18 @@ export class BookingController {
     return await this.bookingService.create(body, req.user.userId);
   }
 
-  // ✅ Guest - Get own bookings
+  // User - Upcoming Booking
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @Permissions('booking.read')
+  @Get('/upcoming')
+  async upcomingBooking(@Req() req) {
+    if (!req.user) {
+      throw new UnauthorizedException();
+    }
+    return await this.bookingService.upcomingBooking(req.user.userId);
+  }
+
+  // ✅ User - Get own bookings
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('booking.read')
   @Get('my')

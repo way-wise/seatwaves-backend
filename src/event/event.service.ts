@@ -249,6 +249,7 @@ export class EventService {
     });
 
     if (existingEvent) {
+      let ticketsAdded = 0;
       if (parsedData.data.tickets.length > 0) {
         // If tickets are provided, we can add them to the existing event
         const ticketsToCreate = parsedData.data.tickets.map((ticket) => ({
@@ -257,59 +258,71 @@ export class EventService {
           eventId: existingEvent.id,
         }));
 
-        // Chunk tickets to avoid too-large queries
-        for (let i = 0; i < ticketsToCreate.length; i += this.CHUNK_SIZE) {
-          const chunk = ticketsToCreate.slice(i, i + this.CHUNK_SIZE);
-          await this.prisma.ticket.createMany({
-            data: chunk,
-            skipDuplicates: true, // Skip duplicates based on unique constraints
-          });
-        }
-      }
-      return { message: 'Event already exists, tickets added if provided' };
-    }
-
-    const newEvent = await this.prisma.event.create({
-      data: {
-        title: parsedData.data.title,
-        description: parsedData.data.description,
-        eventId: parsedData.data.eventId,
-        venue: parsedData.data.venue,
-        startTime: parsedData.data.startTime,
-        endTime: parsedData.data.endTime,
-        duration: parsedData.data.duration,
-        sellerId: sellerId,
-        metadata: parsedData.data.metadata,
-        categoryId: parsedData.data.categoryId,
-      },
-    });
-
-    if (parsedData.data.tickets.length > 0) {
-      const ticketsToCreate = parsedData.data.tickets.map((ticket) => ({
-        ...ticket,
-        sellerId: sellerId,
-        eventId: newEvent.id,
-      }));
-
-      // Chunk tickets to avoid too-large queries
-      for (let i = 0; i < ticketsToCreate.length; i += this.CHUNK_SIZE) {
-        const chunk = ticketsToCreate.slice(i, i + this.CHUNK_SIZE);
-        await this.prisma.ticket.createMany({
-          data: chunk,
-          skipDuplicates: true, // Skip duplicates based on unique constraints
+        // Insert all ticket chunks atomically
+        await this.prisma.$transaction(async (tx) => {
+          for (let i = 0; i < ticketsToCreate.length; i += this.CHUNK_SIZE) {
+            const chunk = ticketsToCreate.slice(i, i + this.CHUNK_SIZE);
+            const res = await tx.ticket.createMany({
+              data: chunk,
+              skipDuplicates: true, // Skip duplicates based on unique constraints
+            });
+            ticketsAdded += (res as any)?.count ?? 0;
+          }
         });
       }
-
-      this.logger.log(
-        `Created event ${newEvent.id} with ${parsedData.data.tickets.length} tickets`,
-      );
+      return {
+        status: true,
+        message: 'Event already exists, tickets added if provided',
+        eventId: existingEvent.id,
+        ticketsAdded,
+      };
     }
 
-    return {
-      status: true,
-      message: 'Event created successfully',
-      eventId: newEvent.id,
-    };
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const newEvent = await tx.event.create({
+          data: {
+            title: parsedData.data.title,
+            description: parsedData.data.description,
+            eventId: parsedData.data.eventId,
+            venue: parsedData.data.venue,
+            startTime: parsedData.data.startTime,
+            endTime: parsedData.data.endTime,
+            duration: parsedData.data.duration,
+            sellerId: sellerId,
+            metadata: parsedData.data.metadata,
+            categoryId: parsedData.data.categoryId,
+          },
+        });
+        let ticketsCreated = 0;
+        if (parsedData.data.tickets.length > 0) {
+          const ticketsToCreate = parsedData.data.tickets.map((ticket) => ({
+            ...ticket,
+            sellerId: sellerId,
+            eventId: newEvent.id,
+          }));
+
+          // Chunk tickets to avoid too-large queries
+          for (let i = 0; i < ticketsToCreate.length; i += this.CHUNK_SIZE) {
+            const chunk = ticketsToCreate.slice(i, i + this.CHUNK_SIZE);
+            const res = await tx.ticket.createMany({
+              data: chunk,
+              skipDuplicates: true, // Skip duplicates based on unique constraints
+            });
+            ticketsCreated += (res as any)?.count ?? 0;
+          }
+        }
+        return {
+          status: true,
+          message: 'Event created successfully',
+          eventId: newEvent.id,
+          ticketsCreated,
+        };
+      });
+    } catch (error) {
+      this.logger.error('Failed to create event', error);
+      throw new NotAcceptableException('Failed to create event');
+    }
   }
 
   //create events bulk
@@ -460,7 +473,7 @@ export class EventService {
     };
   }
 
-  async updateticket(ticketId: string, ticketData) {
+  async updateticket(ticketId: string, ticketData: any, sellerId: string) {
     const parsedData = updateticketSchema.safeParse(ticketData);
 
     if (!parsedData.success) {
@@ -478,6 +491,10 @@ export class EventService {
 
     if (ticket.isBooked) {
       throw new NotAcceptableException('ticket is booked');
+    }
+
+    if (ticket.sellerId !== sellerId) {
+      throw new NotAcceptableException('ticket not belongs to you');
     }
 
     const updatedticket = await this.prisma.ticket.update({
@@ -551,7 +568,71 @@ export class EventService {
   }
 
   //get events by admin with pagination and search
-  async getAllEventsAdmin(query) {
+  async getAllEventsAdmin(query: any) {
+    const parsedQuery = eventQuerySchema.safeParse(query);
+
+    if (!parsedQuery.success) {
+      this.logger.error('Validation failed', parsedQuery.error);
+      throw new NotAcceptableException('Invalid query parameters');
+    }
+
+    const { page, limit, cursor, search, sortBy, sortOrder } = parsedQuery.data;
+
+    const pageInt = parseInt(page, 10);
+    const limitInt = parseInt(limit, 10);
+    const offset = (pageInt - 1) * limitInt;
+
+    const where: any = {};
+
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+        { venue: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [events, total] = await this.prisma.$transaction([
+      this.prisma.event.findMany({
+        where,
+        orderBy: { [sortBy]: sortOrder },
+        skip: offset,
+        take: limitInt,
+        cursor: cursor ? { id: cursor } : undefined,
+
+        include: {
+          _count: {
+            select: {
+              tickets: true,
+              reviews: true,
+            },
+          },
+          category: true,
+          seller: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              avatar: true,
+            },
+          },
+        },
+      }),
+      this.prisma.event.count({ where }),
+    ]);
+
+    return {
+      status: true,
+      data: events,
+      meta: {
+        total,
+        page: pageInt,
+        limit: limitInt,
+      },
+    };
+  }
+
+  async getEventsSeller(query: any, sellerId: string) {
     const parsedQuery = eventQuerySchema.safeParse(query);
 
     if (!parsedQuery.success) {
