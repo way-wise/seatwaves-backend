@@ -589,7 +589,7 @@ export class StripeController {
         error: error.message,
         stack: error.stack,
         userId: req.user.userId,
-        seatId: createPaymentDto.seatId,
+        seatId: createPaymentDto.ticketId,
       });
 
       if (

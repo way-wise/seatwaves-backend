@@ -186,7 +186,7 @@ export class TransactionService {
       const booking = await tx.booking.findUnique({
         where: { id: bookingId },
         include: {
-          seat: {
+          ticket: {
             include: { event: true },
           },
         },
@@ -208,11 +208,11 @@ export class TransactionService {
           provider: PaymentProvider.STRIPE_CONNECT,
           payerId: customerId,
           bookingId: bookingId,
-          eventId: booking.seat.eventId,
+          eventId: booking.ticket.eventId,
           stripePaymentIntent,
           platformFee: new Decimal(platformFee),
           sellerAmount: new Decimal(sellerAmount),
-          description: `Booking payment for ${booking.seat.event.title}`,
+          description: `Booking payment for ${booking.ticket.event.title}`,
           status: TransactionStatus.SUCCESS,
           processedAt: new Date(),
         },
@@ -226,7 +226,7 @@ export class TransactionService {
           currency: Currency.USD,
           provider: PaymentProvider.STRIPE_CONNECT,
           parentTransactionId: paymentTransaction.id,
-          eventId: booking.seat.eventId,
+          eventId: booking.ticket.eventId,
           description: `Platform commission (${platformFeePercentage}%)`,
           status: TransactionStatus.SUCCESS,
           processedAt: new Date(),
@@ -246,7 +246,7 @@ export class TransactionService {
       const booking = await tx.booking.findUnique({
         where: { id: bookingId },
         select: {
-          seat: {
+          ticket: {
             select: {
               id: true,
               eventId: true,
@@ -287,13 +287,13 @@ export class TransactionService {
           amount: booking.transactions[0].sellerAmount,
           currency: Currency.USD,
           provider: PaymentProvider.STRIPE_CONNECT,
-          payeeId: booking.seat.event.seller.id,
+          payeeId: booking.ticket.event.seller.id,
           bookingId: bookingId,
-          eventId: booking.seat.eventId,
+          eventId: booking.ticket.eventId,
           parentTransactionId: originalPayment.id,
           stripeTransferId,
           stripeAccountId,
-          description: `Host payout for ${booking.seat.event.title}`,
+          description: `Host payout for ${booking.ticket.event.title}`,
           status: TransactionStatus.SUCCESS,
           processedAt: new Date(),
         },
@@ -316,7 +316,7 @@ export class TransactionService {
         where: { id: originalTransactionId },
         include: {
           payer: true,
-          booking: { include: { seat: true } },
+          booking: { include: { ticket: true } },
         },
       });
 
@@ -337,7 +337,7 @@ export class TransactionService {
           provider: originalTransaction.provider,
           payeeId: originalTransaction.payerId, // Customer receives refund
           bookingId: originalTransaction.bookingId,
-          eventId: originalTransaction.booking?.seat.eventId,
+          eventId: originalTransaction.booking?.ticket.eventId,
           parentTransactionId: originalTransactionId,
           stripeChargeId: stripeRefundId,
           description: `Refund: ${reason}`,
@@ -391,7 +391,7 @@ export class TransactionService {
           booking: {
             select: {
               id: true,
-              seat: {
+              ticket: {
                 select: {
                   id: true,
                   eventId: true,
@@ -427,7 +427,7 @@ export class TransactionService {
         payee: { select: { id: true, name: true, email: true } },
         booking: {
           include: {
-            seat: { select: { id: true, eventId: true } },
+            ticket: { select: { id: true, eventId: true } },
           },
         },
         event: { select: { id: true, title: true } },
@@ -536,7 +536,7 @@ export class TransactionService {
         include: {
           booking: {
             include: {
-              seat: { select: { id: true, eventId: true } },
+              ticket: { select: { id: true, eventId: true } },
             },
           },
         },
@@ -654,7 +654,7 @@ export class TransactionService {
           booking: {
             select: {
               id: true,
-              seat: { select: { id: true, eventId: true } },
+              ticket: { select: { id: true, eventId: true } },
             },
           },
         },
@@ -934,7 +934,7 @@ export class TransactionService {
           booking: {
             select: {
               id: true,
-              seat: { select: { id: true, eventId: true } },
+              ticket: { select: { id: true, eventId: true } },
             },
           },
           event: { select: { id: true, title: true } },

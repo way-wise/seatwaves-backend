@@ -10,10 +10,10 @@ import { NotificationService } from 'src/notification/notification.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { QUEUES } from 'src/queues/queue.constants';
 import { z } from 'zod';
-import { createEventScehema, SeatSchema } from './dto/create.event.dto';
+import { createEventScehema, ticketSchema } from './dto/create.event.dto';
 import { eventQuerySchema } from './dto/event.query.dto';
-import { seatQuerySchema } from './dto/seat.query.dto';
-import { updateSeatSchema } from './dto/update.seat.dto';
+import { ticketQuerySchema } from './dto/ticket.query.dto';
+import { updateticketSchema } from './dto/update.ticket.dto';
 
 @Injectable()
 export class EventService {
@@ -132,11 +132,11 @@ export class EventService {
       where: { id },
       include: {
         category: true,
-        seats: {
+        tickets: {
           select: {
             id: true,
-            seatId: true,
-            seatNumber: true,
+            ticketId: true,
+            seatDetails: true,
             seller: { select: { id: true, name: true } },
             price: true,
             discount: true,
@@ -158,9 +158,9 @@ export class EventService {
     };
   }
 
-  // get seat by event Id
-  async getSeatsByEventId(eventId: string, query) {
-    const parsedQuery = seatQuerySchema.safeParse(query);
+  // get ticket by event Id
+  async getticketsByEventId(eventId: string, query) {
+    const parsedQuery = ticketQuerySchema.safeParse(query);
 
     if (!parsedQuery.success) {
       this.logger.error('Validation failed', parsedQuery.error);
@@ -191,29 +191,28 @@ export class EventService {
 
     if (search) {
       where.OR = [
-        { seatId: { contains: search, mode: 'insensitive' } },
-        { row: { contains: search, mode: 'insensitive' } },
-        { section: { contains: search, mode: 'insensitive' } },
+        { ticketId: { contains: search, mode: 'insensitive' } },
+        { seatDetails: { contains: search, mode: 'insensitive' } },
       ];
     }
 
-    const [seats, total] = await this.prisma.$transaction([
-      this.prisma.seat.findMany({
+    const [tickets, total] = await this.prisma.$transaction([
+      this.prisma.ticket.findMany({
         where,
         orderBy: { [sortBy]: sortOrder },
         skip: offset,
         take: limitInt,
         cursor: cursor ? { id: cursor } : undefined,
       }),
-      this.prisma.seat.count({ where }),
+      this.prisma.ticket.count({ where }),
     ]);
 
     const nextCursor =
-      seats.length === limitInt ? seats[seats.length - 1].id : null;
+      tickets.length === limitInt ? tickets[tickets.length - 1].id : null;
 
     return {
       status: true,
-      data: seats,
+      data: tickets,
       meta: {
         total,
         page: pageInt,
@@ -250,24 +249,24 @@ export class EventService {
     });
 
     if (existingEvent) {
-      if (parsedData.data.seats.length > 0) {
-        // If seats are provided, we can add them to the existing event
-        const seatsToCreate = parsedData.data.seats.map((seat) => ({
-          ...seat,
+      if (parsedData.data.tickets.length > 0) {
+        // If tickets are provided, we can add them to the existing event
+        const ticketsToCreate = parsedData.data.tickets.map((ticket) => ({
+          ...ticket,
           sellerId: existingEvent.sellerId,
           eventId: existingEvent.id,
         }));
 
-        // Chunk seats to avoid too-large queries
-        for (let i = 0; i < seatsToCreate.length; i += this.CHUNK_SIZE) {
-          const chunk = seatsToCreate.slice(i, i + this.CHUNK_SIZE);
-          await this.prisma.seat.createMany({
+        // Chunk tickets to avoid too-large queries
+        for (let i = 0; i < ticketsToCreate.length; i += this.CHUNK_SIZE) {
+          const chunk = ticketsToCreate.slice(i, i + this.CHUNK_SIZE);
+          await this.prisma.ticket.createMany({
             data: chunk,
             skipDuplicates: true, // Skip duplicates based on unique constraints
           });
         }
       }
-      return { message: 'Event already exists, seats added if provided' };
+      return { message: 'Event already exists, tickets added if provided' };
     }
 
     const newEvent = await this.prisma.event.create({
@@ -285,24 +284,24 @@ export class EventService {
       },
     });
 
-    if (parsedData.data.seats.length > 0) {
-      const seatsToCreate = parsedData.data.seats.map((seat) => ({
-        ...seat,
+    if (parsedData.data.tickets.length > 0) {
+      const ticketsToCreate = parsedData.data.tickets.map((ticket) => ({
+        ...ticket,
         sellerId: sellerId,
         eventId: newEvent.id,
       }));
 
-      // Chunk seats to avoid too-large queries
-      for (let i = 0; i < seatsToCreate.length; i += this.CHUNK_SIZE) {
-        const chunk = seatsToCreate.slice(i, i + this.CHUNK_SIZE);
-        await this.prisma.seat.createMany({
+      // Chunk tickets to avoid too-large queries
+      for (let i = 0; i < ticketsToCreate.length; i += this.CHUNK_SIZE) {
+        const chunk = ticketsToCreate.slice(i, i + this.CHUNK_SIZE);
+        await this.prisma.ticket.createMany({
           data: chunk,
           skipDuplicates: true, // Skip duplicates based on unique constraints
         });
       }
 
       this.logger.log(
-        `Created event ${newEvent.id} with ${parsedData.data.seats.length} seats`,
+        `Created event ${newEvent.id} with ${parsedData.data.tickets.length} tickets`,
       );
     }
 
@@ -339,8 +338,8 @@ export class EventService {
     const summary = {
       created: 0,
       updatedExisting: 0,
-      seatsCreated: 0,
-      seatsAddedToExisting: 0,
+      ticketsCreated: 0,
+      ticketsAddedToExisting: 0,
       skipped: 0,
       eventIds: [] as string[],
       errors: [] as { index: number; message: string }[],
@@ -355,21 +354,21 @@ export class EventService {
         });
 
         if (existing) {
-          // If seats provided, add them
-          if (ev.seats && ev.seats.length > 0) {
-            const seatsToCreate = ev.seats.map((seat) => ({
-              ...seat,
+          // If tickets provided, add them
+          if (ev.tickets && ev.tickets.length > 0) {
+            const ticketsToCreate = ev.tickets.map((ticket) => ({
+              ...ticket,
               metaData: ev.metaData,
               eventId: existing.id,
             }));
-            for (let j = 0; j < seatsToCreate.length; j += this.CHUNK_SIZE) {
-              const chunk = seatsToCreate.slice(j, j + this.CHUNK_SIZE);
-              await this.prisma.seat.createMany({
+            for (let j = 0; j < ticketsToCreate.length; j += this.CHUNK_SIZE) {
+              const chunk = ticketsToCreate.slice(j, j + this.CHUNK_SIZE);
+              await this.prisma.ticket.createMany({
                 data: chunk,
                 skipDuplicates: true,
               });
             }
-            summary.seatsAddedToExisting += ev.seats.length;
+            summary.ticketsAddedToExisting += ev.tickets.length;
           }
           summary.updatedExisting += 1;
           continue;
@@ -393,19 +392,19 @@ export class EventService {
         summary.created += 1;
         summary.eventIds.push(newEvent.id);
 
-        if (ev.seats && ev.seats.length > 0) {
-          const seatsToCreate = ev.seats.map((seat) => ({
-            ...seat,
+        if (ev.tickets && ev.tickets.length > 0) {
+          const ticketsToCreate = ev.tickets.map((ticket) => ({
+            ...ticket,
             eventId: newEvent.id,
           }));
-          for (let j = 0; j < seatsToCreate.length; j += this.CHUNK_SIZE) {
-            const chunk = seatsToCreate.slice(j, j + this.CHUNK_SIZE);
-            await this.prisma.seat.createMany({
+          for (let j = 0; j < ticketsToCreate.length; j += this.CHUNK_SIZE) {
+            const chunk = ticketsToCreate.slice(j, j + this.CHUNK_SIZE);
+            await this.prisma.ticket.createMany({
               data: chunk,
               skipDuplicates: true,
             });
           }
-          summary.seatsCreated += ev.seats.length;
+          summary.ticketsCreated += ev.tickets.length;
         }
       } catch (e: any) {
         this.logger.error(`Failed to process event at index ${i}`, e);
@@ -424,9 +423,9 @@ export class EventService {
     };
   }
 
-  // Added Seat
-  async addSeatToEvent(eventId: string, seatData: any, sellerId: string) {
-    const parsedData = SeatSchema.safeParse(seatData);
+  // Added ticket
+  async addticketToEvent(eventId: string, ticketData: any, sellerId: string) {
+    const parsedData = ticketSchema.safeParse(ticketData);
 
     if (!parsedData.success) {
       this.logger.error('Validation failed', parsedData.error);
@@ -441,10 +440,11 @@ export class EventService {
       throw new NotAcceptableException('Event not found');
     }
 
-    const newSeat = await this.prisma.seat.create({
+    const newticket = await this.prisma.ticket.create({
       data: {
-        seatId: parsedData.data.seatId,
+        ticketId: parsedData.data.ticketId,
         sellerId: sellerId,
+        seatDetails: parsedData.data.seatDetails,
         metadata: parsedData.data.metadata,
         price: parsedData.data.price,
         discount: parsedData.data.discount,
@@ -455,33 +455,33 @@ export class EventService {
 
     return {
       status: true,
-      message: 'Seat added successfully',
-      seatId: newSeat.id,
+      message: 'ticket added successfully',
+      ticketId: newticket.id,
     };
   }
 
-  async updateSeat(seatId: string, seatData) {
-    const parsedData = updateSeatSchema.safeParse(seatData);
+  async updateticket(ticketId: string, ticketData) {
+    const parsedData = updateticketSchema.safeParse(ticketData);
 
     if (!parsedData.success) {
       this.logger.error('Validation failed', parsedData.error);
       throw new NotAcceptableException(parsedData.error.message);
     }
 
-    const seat = await this.prisma.seat.findUnique({
-      where: { id: seatId },
+    const ticket = await this.prisma.ticket.findUnique({
+      where: { id: ticketId },
     });
 
-    if (!seat) {
-      throw new NotAcceptableException('Seat not found');
+    if (!ticket) {
+      throw new NotAcceptableException('ticket not found');
     }
 
-    if (seat.isBooked) {
-      throw new NotAcceptableException('Seat is booked');
+    if (ticket.isBooked) {
+      throw new NotAcceptableException('ticket is booked');
     }
 
-    const updatedSeat = await this.prisma.seat.update({
-      where: { id: seatId },
+    const updatedticket = await this.prisma.ticket.update({
+      where: { id: ticketId },
       data: {
         ...parsedData.data,
       },
@@ -489,8 +489,8 @@ export class EventService {
 
     return {
       status: true,
-      message: 'Seat updated successfully',
-      seatId: updatedSeat.id,
+      message: 'ticket updated successfully',
+      ticketId: updatedticket.id,
     };
   }
 
@@ -529,7 +529,7 @@ export class EventService {
         include: {
           category: true,
           seller: true,
-          seats: true,
+          tickets: true,
         },
       }),
       this.prisma.event.count({ where }),
@@ -586,7 +586,7 @@ export class EventService {
         include: {
           _count: {
             select: {
-              seats: true,
+              tickets: true,
               reviews: true,
             },
           },
@@ -628,22 +628,22 @@ export class EventService {
         seller: {
           select: { id: true, name: true, email: true, avatar: true },
         },
-        _count: { select: { seats: true, reviews: true } },
+        _count: { select: { tickets: true, reviews: true } },
       },
     });
 
     if (!event) throw new NotFoundException('Event not found');
 
     // Build base where for bookings belonging to this event
-    const whereBookingBase = { deletedAt: null, seat: { eventId: id } };
+    const whereBookingBase = { deletedAt: null, ticket: { eventId: id } };
     const paidStatuses = ['CONFIRMED', 'SHIPPED', 'DELIVERED'] as const;
 
     const [
       bookingsTotalCount,
       statusBreakdown,
       paidAgg,
-      totalSeats,
-      availableSeats,
+      totaltickets,
+      availabletickets,
       reviewBreakdown,
       txnAgg,
     ] = await this.prisma.$transaction([
@@ -659,8 +659,8 @@ export class EventService {
         _sum: { total: true },
         _count: { _all: true },
       }),
-      this.prisma.seat.count({ where: { eventId: id } }),
-      this.prisma.seat.count({ where: { eventId: id, isBooked: false } }),
+      this.prisma.ticket.count({ where: { eventId: id } }),
+      this.prisma.ticket.count({ where: { eventId: id, isBooked: false } }),
       this.prisma.review.groupBy({
         by: ['status'],
         where: { eventId: id },
@@ -681,9 +681,9 @@ export class EventService {
       totalRevenue: Number(txnAgg._sum?.amount || 0),
       totalPlatformFees: Number(txnAgg._sum?.platformFee || 0),
       totalSellerPayouts: Number(txnAgg._sum?.sellerAmount || 0),
-      totalTickets: totalSeats,
-      availableTickets: availableSeats,
-      soldTickets: totalSeats - availableSeats,
+      totalTickets: totaltickets,
+      availableTickets: availabletickets,
+      soldTickets: totaltickets - availabletickets,
       statusBreakdown,
       reviews: reviewBreakdown,
     };

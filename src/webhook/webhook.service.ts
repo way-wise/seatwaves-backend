@@ -283,7 +283,7 @@ export class WebhookService {
           transactionId: transaction.id,
           bookingId,
           hostId,
-          eventId: transaction.booking?.seatId,
+          eventId: transaction.booking?.ticketId,
         }),
         ipAddress: 'Webhook',
       });
@@ -311,7 +311,7 @@ export class WebhookService {
             { stripePaymentIntent: session.payment_intent as string },
           ],
         },
-        include: { booking: { include: { seat: true } } },
+        include: { booking: { include: { ticket: true } } },
       });
 
       if (!txn) {
@@ -450,10 +450,10 @@ export class WebhookService {
             select: {
               id: true,
               status: true,
-              seat: {
+              ticket: {
                 select: {
                   id: true,
-                  seatId: true,
+                  ticketId: true,
                 },
               },
             },

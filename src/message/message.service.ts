@@ -32,7 +32,7 @@ export class MessageService {
         id: body.bookingId,
       },
       include: {
-        seat: true,
+        ticket: true,
       },
     });
 
@@ -40,7 +40,7 @@ export class MessageService {
       throw new NotFoundException('Booking not found');
     }
 
-    if (existBooking.seat.sellerId === userId) {
+    if (existBooking.ticket.sellerId === userId) {
       throw new BadRequestException(
         'You cannot initiate a message with yourself',
       );
@@ -62,7 +62,7 @@ export class MessageService {
       where: {
         unique_message_room: {
           senderId: userId,
-          receiverId: existBooking.seat.sellerId,
+          receiverId: existBooking.ticket.sellerId,
           bookingId: body.bookingId,
         },
       },
@@ -72,7 +72,7 @@ export class MessageService {
         data: {
           message: body.message,
           senderId: userId,
-          receiverId: existBooking.seat.sellerId,
+          receiverId: existBooking.ticket.sellerId,
           roomId: exists.id,
         },
       });
@@ -87,13 +87,13 @@ export class MessageService {
     const newMessageRoom = await this.prisma.messageRoom.create({
       data: {
         senderId: userId,
-        receiverId: existBooking.seat.sellerId,
+        receiverId: existBooking.ticket.sellerId,
         bookingId: body.bookingId,
         messages: {
           create: {
             message: body.message,
             senderId: userId,
-            receiverId: existBooking.seat.sellerId, // Add this line
+            receiverId: existBooking.ticket.sellerId, // Add this line
           },
         },
       },

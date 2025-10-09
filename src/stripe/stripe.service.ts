@@ -37,7 +37,7 @@ export interface CreatePaymentIntentDto {
 }
 
 export interface createPaymentSession {
-  seatId: string;
+  ticketId: string;
   deliveryType: DeliveryType;
   couponId?: string;
   pickupAddress?: string;
@@ -354,8 +354,8 @@ export class StripeService {
       });
       if (!user) throw new NotFoundException('This user does not exist');
 
-      const seat = await this.prisma.seat.findUnique({
-        where: { id: data.seatId },
+      const ticket = await this.prisma.ticket.findUnique({
+        where: { id: data.ticketId },
         include: {
           event: {
             select: {
@@ -375,10 +375,10 @@ export class StripeService {
         },
       });
 
-      if (!seat) throw new NotFoundException('This seat does not exist');
+      if (!ticket) throw new NotFoundException('This seat does not exist');
 
-      const price = new Decimal(seat.price);
-      const discount = new Decimal(seat.discount || 0);
+      const price = new Decimal(ticket.price);
+      const discount = new Decimal(ticket.discount || 0);
 
       const basePrice = price.toNumber();
       const discountPercent = discount.toNumber();
@@ -392,7 +392,7 @@ export class StripeService {
       const tax = 0;
       const total = subtotal - discountAmount + vat + tax;
 
-      const seller = seat.event.seller;
+      const seller = ticket.event.seller;
       if (!seller.stripeAccountId || !seller.stripeOnboardingComplete) {
         throw new BadRequestException(
           'Seller has not completed Stripe onboarding',
@@ -405,7 +405,7 @@ export class StripeService {
       const platformFee = this.calculatePlatformFee(finalAmount, 5);
       const ctx = {
         user,
-        seat,
+        ticket,
         seller,
         finalAmount,
         appliedDiscount,
@@ -423,7 +423,7 @@ export class StripeService {
             price_data: {
               currency: 'usd',
               product_data: {
-                name: ctx.seat.event.title,
+                name: ctx.ticket.event.title,
                 description: 'Seat booking',
               },
               unit_amount: Math.round(ctx.finalAmount * 100),
@@ -440,7 +440,7 @@ export class StripeService {
           // application_fee_amount: Math.round(ctx.platformFee * 100),
           // transfer_data: { destination: ctx.seller.stripeAccountId as string },
           metadata: {
-            seatId: ctx.seat.id || '',
+            ticketId: ctx.ticket.id || '',
             sellerId: ctx.seller.id,
             customerId: customer.id,
             couponId: data.couponId || '',
@@ -459,7 +459,7 @@ export class StripeService {
           data: {
             userId: userId,
             status: BookingStatus.PENDING,
-            seatId: data.seatId,
+            ticketId: data.ticketId,
             price: price,
             discount: appliedDiscount + discountAmount,
             paymentMethod: 'STRIPE',
@@ -478,12 +478,12 @@ export class StripeService {
                 provider: PaymentProvider.STRIPE_CONNECT,
                 payerId: userId,
                 payeeId: ctx.seller.id,
-                eventId: ctx.seat.event.id,
+                eventId: ctx.ticket.event.id,
                 stripePaymentIntent: session.id,
                 stripeAccountId: ctx.seller.stripeAccountId as string,
                 platformFee: ctx.platformFee,
                 sellerAmount: ctx.finalAmount - ctx.platformFee,
-                description: `Payment for ${ctx.seat.event.title}`,
+                description: `Payment for ${ctx.ticket.event.title}`,
                 externalTxnId: session.id,
                 metadata: {
                   reservedAt: new Date().toISOString(),
@@ -493,8 +493,8 @@ export class StripeService {
             },
           },
         });
-        await tx.seat.update({
-          where: { id: data.seatId },
+        await tx.ticket.update({
+          where: { id: data.ticketId },
           data: { isBooked: true },
         });
       });
@@ -526,7 +526,7 @@ export class StripeService {
       });
 
       this.logger.log(
-        `Created Checkout Session ${session.id} for event ${ctx.seat.event.id} and user ${userId}`,
+        `Created Checkout Session ${session.id} for event ${ctx.ticket.event.id} and user ${userId}`,
       );
 
       return {
@@ -699,7 +699,7 @@ export class StripeService {
       const booking = await tx.booking.create({
         data: {
           userId: userId,
-          seatId: data.eventId,
+          ticketId: data.eventId,
           price: new Decimal(basePrice),
           discount: new Decimal(discountAmount + appliedDiscount),
           vat: new Decimal(vat),

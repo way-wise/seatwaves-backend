@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { eventQuerySchema } from './event.query.dto';
 
-export const seatQuerySchema = z.object({
+export const ticketQuerySchema = z.object({
   page: z.string().optional().default('1'),
   limit: z.string().optional().default('10'),
   cursor: z.string().optional(),

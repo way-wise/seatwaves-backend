@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const updateSeatSchema = z.object({
+export const updateticketSchema = z.object({
   row: z.string().optional(),
   number: z.number().optional(),
   section: z.string().optional(),

@@ -154,7 +154,7 @@ export class BookingService {
 
     const where: any = {
       deletedAt: null,
-      seat: {
+      ticket: {
         sellerId: hostId,
       },
     };
@@ -421,7 +421,7 @@ export class BookingService {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
-        seat: {
+        ticket: {
           select: {
             sellerId: true,
           },
@@ -533,7 +533,7 @@ export class BookingService {
 
       // Notify host
       //TODO: get actual host id
-      const sellerId = booking.seat.sellerId;
+      const sellerId = booking.ticket.sellerId;
       if (sellerId) {
         await this.notificationService.createAndQueueNotification(sellerId, {
           type: NotificationType.BOOKING,
@@ -733,11 +733,11 @@ Thank you.`;
       where: { id: bookingId },
       include: {
         user: { select: { id: true, name: true, email: true, avatar: true } },
-        seat: {
+        ticket: {
           select: {
             id: true,
-            seatNumber: true,
-            seatId: true,
+            seatDetails: true,
+            ticketId: true,
             eventId: true,
             price: true,
             discount: true,
@@ -836,7 +836,7 @@ Thank you.`;
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
-        seat: {
+        ticket: {
           select: {
             sellerId: true,
             seller: {
@@ -883,7 +883,7 @@ Thank you.`;
     }
 
     // 1) Create Stripe transfer first
-    const sellerAccountId = booking.seat.seller?.stripeAccountId;
+    const sellerAccountId = booking.ticket.seller?.stripeAccountId;
     if (!sellerAccountId) {
       throw new BadRequestException('Seller Stripe account not found');
     }
@@ -946,13 +946,13 @@ Thank you.`;
               amount: sellerAmount,
               currency: Currency.USD,
               provider: PaymentProvider.STRIPE_CONNECT,
-              payeeId: booking.seat.seller.id,
+              payeeId: booking.ticket.seller.id,
               bookingId: bookingId,
-              eventId: booking.seat.eventId,
+              eventId: booking.ticket.eventId,
               parentTransactionId: paymentTxn.id,
               stripeTransferId: transferId,
               stripeAccountId: sellerAccountId,
-              description: `Host payout for ${booking.seat.event.title}`,
+              description: `Host payout for ${booking.ticket.event.title}`,
               status: TransactionStatus.SUCCESS,
               processedAt: new Date(),
             },
@@ -983,7 +983,7 @@ Thank you.`;
       data: { bookingId: booking.id },
     });
 
-    this.notificationService.sendNotification(booking.seat.sellerId, {
+    this.notificationService.sendNotification(booking.ticket.sellerId, {
       title: 'Booking Verified',
       message: payoutInitiated
         ? 'A payout has been initiated for your booking.'
@@ -999,7 +999,7 @@ Thank you.`;
       html: `<b>Your booking has been verified successfully.</b>`,
     });
 
-    this.emailService.sendEmailToUser(booking.seat.sellerId, {
+    this.emailService.sendEmailToUser(booking.ticket.sellerId, {
       subject: 'Booking Verified',
       text: payoutInitiated
         ? 'A payout has been initiated for your delivered booking.'

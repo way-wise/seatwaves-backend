@@ -50,7 +50,7 @@ export class DashboardService {
       this.prisma.booking.count({
         where: {
           status: 'CONFIRMED',
-          seat: {
+          ticket: {
             event: {
               sellerId: userId,
               startTime: { gte: startDate, lte: endDate },
@@ -63,7 +63,7 @@ export class DashboardService {
       this.prisma.booking.count({
         where: {
           createdAt: { gte: startDate, lte: endDate },
-          seat: { event: { sellerId: userId } },
+          ticket: { event: { sellerId: userId } },
         },
       }),
 
@@ -90,14 +90,14 @@ export class DashboardService {
 
       // Latest 5 bookings for this seller's events
       this.prisma.booking.findMany({
-        where: { seat: { event: { sellerId: userId } } },
+        where: { ticket: { event: { sellerId: userId } } },
         take: 5,
         orderBy: { createdAt: 'desc' },
         include: {
           user: { select: { name: true, avatar: true } },
-          seat: {
+          ticket: {
             select: {
-              seatId: true,
+              ticketId: true,
               event: {
                 select: { id: true, title: true, startTime: true, image: true },
               },
@@ -143,7 +143,7 @@ export class DashboardService {
         where: {
           status: 'DELIVERED',
           createdAt: { gte: startDate, lte: endDate },
-          seat: { event: { sellerId: userId } },
+          ticket: { event: { sellerId: userId } },
         },
         _sum: { total: true },
       }),
@@ -153,7 +153,7 @@ export class DashboardService {
         where: {
           status: 'DELIVERED',
           createdAt: { gte: startDate, lte: endDate },
-          seat: { event: { sellerId: userId } },
+          ticket: { event: { sellerId: userId } },
         },
       }),
 
@@ -162,7 +162,7 @@ export class DashboardService {
         where: {
           status: 'CANCELLED',
           createdAt: { gte: startDate, lte: endDate },
-          seat: { event: { sellerId: userId } },
+          ticket: { event: { sellerId: userId } },
         },
       }),
 
@@ -182,7 +182,7 @@ export class DashboardService {
     const bookingsByStatus = await this.prisma.booking.groupBy({
       by: ['status'],
       where: {
-        seat: { event: { sellerId: userId } },
+        ticket: { event: { sellerId: userId } },
         createdAt: { gte: startDate, lte: endDate },
       },
       _count: { _all: true },
@@ -194,7 +194,7 @@ export class DashboardService {
     // Time series (daily) for bookings/guests/revenue within range
     const bookingsForTrend = await this.prisma.booking.findMany({
       where: {
-        seat: { event: { sellerId: userId } },
+        ticket: { event: { sellerId: userId } },
         createdAt: { gte: startDate, lte: endDate },
       },
       select: { createdAt: true, total: true },
@@ -962,7 +962,7 @@ export class DashboardService {
 
     const bookings = await this.prisma.booking.findMany({
       where: {
-        seat: { event: { sellerId: userId } },
+        ticket: { event: { sellerId: userId } },
         status: { in: ['DELIVERED', 'CONFIRMED'] },
       },
       select: { id: true, createdAt: true, total: true },

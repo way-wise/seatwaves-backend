@@ -20,7 +20,7 @@ export class ReviewService {
       select: {
         id: true,
         userId: true,
-        seat: {
+        ticket: {
           select: {
             event: true,
           },
@@ -28,7 +28,7 @@ export class ReviewService {
       },
     });
 
-    if (!booking || !booking.seat?.event) {
+    if (!booking || !booking.ticket?.event) {
       throw new NotAcceptableException("You can't provide review");
     }
 
@@ -40,7 +40,7 @@ export class ReviewService {
     const alreadyReviewed = await this.prisma.review.findFirst({
       where: {
         AND: [
-          { eventId: booking.seat.event.id },
+          { eventId: booking.ticket.event.id },
           { reviewerId: booking.userId },
         ],
       },
@@ -57,16 +57,16 @@ export class ReviewService {
         title: data.title,
         comment: data.comment,
         rating: data.rating,
-        eventId: booking.seat.event.id,
+        eventId: booking.ticket.event.id,
         reviewerId: booking.userId,
-        revieweeId: booking.seat.event.sellerId,
+        revieweeId: booking.ticket.event.sellerId,
       },
     });
 
     //Calculate Average Rating then update experience
     const reviews = await this.prisma.review.findMany({
       where: {
-        eventId: booking.seat.event.id,
+        eventId: booking.ticket.event.id,
       },
       select: {
         rating: true,
@@ -83,7 +83,7 @@ export class ReviewService {
     //   data: { averageRating },
     // });
     await this.prisma.user.update({
-      where: { id: booking.seat.event.sellerId },
+      where: { id: booking.ticket.event.sellerId },
       data: { averageRating },
     });
 

@@ -40,6 +40,7 @@ model User {
   bio                      String?
   about                    String?
   address                  String?
+  cover                    String?
   city                     String?
   state                    String?
   country                  String?
@@ -93,7 +94,7 @@ model User {
   userLoyalty              UserLoyalty?
   tierHistories            TierHistory[]
   WishlistItem             WishlistItem[]
-  Seat                     Seat[]
+  tickets                  ticket[]
   reportsFiled             Report[]               @relation("ReportsFiled")
   reportsAgainst           Report[]               @relation("ReportsAgainst")
   assignedReports          Report[]               @relation("ReportAssignee")
@@ -291,23 +292,32 @@ model UserInterest {
 }
 
 model Event {
-  id          String    @id @default(ulid())
-  eventId     String    @unique
-  title       String
-  description String?
-  venue       String?
-  startTime   DateTime
-  endTime     DateTime?
-  duration    Int? // in minutes
-  image       String?
-  metadata    Json?
+  id           String    @id @default(ulid())
+  eventId      String    @unique
+  originUrl    String?
+  title        String
+  description  String?
+  venue        String?
+  startTime    DateTime
+  endTime      DateTime?
+  duration     Int? // in minutes
+  image        String?
+  city         String?
+  address      String?
+  country      String?
+  timezone     String?
+  seatmapImage String?
+  venueImage   String?
+  latitude     String?
+  longitude    String?
+  metadata     Json?
 
   status       EventStatus    @default(ONGOING)
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   sellerId     String
   seller       User           @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  seats        Seat[]
+  tickets      ticket[]
   reviews      Review[]
   rooms        MessageRoom[]
   transactions Transaction[]
@@ -328,14 +338,16 @@ enum EventStatus {
   RESCHEDULED
 }
 
-model Seat {
+model ticket {
   id           String       @id @default(ulid())
-  seatId       String
+  ticketId     String
+  ticketType   String?
   eventId      String
   price        Decimal      @db.Decimal(10, 2)
   discount     Decimal      @default(0) @db.Decimal(10, 2)
   discountType DiscountType @default(FIXED)
-  seatNumber   String?
+  seatDetails  String
+  thumbnail    String?
   description  String?
   note         String?
   metadata     Json?
@@ -350,8 +362,8 @@ model Seat {
 
   @@index([eventId])
   @@index([sellerId])
-  @@index([seatNumber])
-  @@map("seats")
+  @@index([seatDetails])
+  @@map("tickets")
 }
 
 enum DiscountType {
@@ -363,8 +375,8 @@ model Booking {
   id            String          @id @default(ulid()) @map("bookingId")
   user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId        String
-  seatId        String
-  seat          Seat            @relation(fields: [seatId], references: [id], onDelete: Cascade)
+  ticketId      String
+  ticket        ticket          @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   price         Decimal
   discount      Decimal
   vat           Decimal

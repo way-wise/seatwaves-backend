@@ -13,6 +13,7 @@ Table users {
   bio String
   about String
   address String
+  cover String
   city String
   state String
   country String
@@ -65,7 +66,7 @@ Table users {
   userLoyalty UserLoyalty
   tierHistories TierHistory [not null]
   WishlistItem wishlist_items [not null]
-  Seat seats [not null]
+  tickets tickets [not null]
   reportsFiled reports [not null]
   reportsAgainst reports [not null]
   assignedReports reports [not null]
@@ -195,6 +196,7 @@ Table user_interest {
 Table events {
   id String [pk]
   eventId String [unique, not null]
+  originUrl String
   title String [not null]
   description String
   venue String
@@ -202,13 +204,21 @@ Table events {
   endTime DateTime
   duration Int
   image String
+  city String
+  address String
+  country String
+  timezone String
+  seatmapImage String
+  venueImage String
+  latitude String
+  longitude String
   metadata Json
   status EventStatus [not null, default: 'ONGOING']
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [not null]
   sellerId String [not null]
   seller users [not null]
-  seats seats [not null]
+  tickets tickets [not null]
   reviews reviews [not null]
   rooms message_rooms [not null]
   transactions transactions [not null]
@@ -219,14 +229,16 @@ Table events {
   Report reports [not null]
 }
 
-Table seats {
+Table tickets {
   id String [pk]
-  seatId String [not null]
+  ticketId String [not null]
+  ticketType String
   eventId String [not null]
   price Decimal [not null]
   discount Decimal [not null, default: 0]
   discountType DiscountType [not null, default: 'FIXED']
-  seatNumber String
+  seatDetails String [not null]
+  thumbnail String
   description String
   note String
   metadata Json
@@ -243,8 +255,8 @@ Table bookings {
   id String [pk]
   user users [not null]
   userId String [not null]
-  seatId String [not null]
-  seat seats [not null]
+  ticketId String [not null]
+  ticket tickets [not null]
   price Decimal [not null]
   discount Decimal [not null]
   vat Decimal [not null]
@@ -1084,13 +1096,13 @@ Ref: events.sellerId > users.id [delete: Cascade]
 
 Ref: events.categoryId > categorys.id
 
-Ref: seats.eventId > events.id [delete: Cascade]
+Ref: tickets.eventId > events.id [delete: Cascade]
 
-Ref: seats.sellerId > users.id [delete: Cascade]
+Ref: tickets.sellerId > users.id [delete: Cascade]
 
 Ref: bookings.userId > users.id [delete: Cascade]
 
-Ref: bookings.seatId > seats.id [delete: Cascade]
+Ref: bookings.ticketId > tickets.id [delete: Cascade]
 
 Ref: transactions.payerId > users.id
 

@@ -45,7 +45,7 @@ export class EventController {
   //get events by id
   @Get(':id/seats')
   getSeatsByEventId(@Param('id') id: string, @Query() query) {
-    return this.eventService.getSeatsByEventId(id, query);
+    return this.eventService.getticketsByEventId(id, query);
   }
 
   @Get('/seller/:id')
@@ -70,13 +70,13 @@ export class EventController {
   @UseGuards(AuthGuard('jwt'))
   @Post('/:id/seats')
   addSeats(@Param('id') id: string, @Body() body: any, @Req() req) {
-    return this.eventService.addSeatToEvent(id, body, req.user.userId);
+    return this.eventService.addticketToEvent(id, body, req.user.userId);
   }
 
   @UseGuards(AuthGuard('jwt'))
   @Put('/seats/:id')
   @Permissions('update:event')
   updateSeat(@Param('id') id: string, @Body() body: any) {
-    return this.eventService.updateSeat(id, body);
+    return this.eventService.updateticket(id, body);
   }
 }
