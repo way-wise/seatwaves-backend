@@ -393,7 +393,7 @@ export class StripeService {
       const total = subtotal - discountAmount + vat + tax;
 
       const seller = ticket.event.seller;
-      if (!seller.stripeAccountId || !seller.stripeOnboardingComplete) {
+      if (!seller.stripeAccountId) {
         throw new BadRequestException(
           'Seller has not completed Stripe onboarding',
         );
