@@ -14,6 +14,10 @@ import { CreateUserDto } from './dto/register.user.dto';
 import { OAuth2Client } from 'google-auth-library';
 import { EmailService } from 'src/email/email.service';
 import { OtpType } from '@prisma/client';
+import {
+  generateOTPEmailHTML,
+  generateOTPEmailText,
+} from 'src/lib/email-template';
 
 @Injectable()
 export class AuthService {
@@ -103,9 +107,9 @@ export class AuthService {
     // Send OTP email outside transaction (avoid slowing down DB ops)
     await this.emailService.sendOTPEmail({
       to: result.createUser.email,
-      subject: 'Verification OTP',
-      text: `Your OTP for verification is ${result.otp}. This OTP is valid for 10 minutes. Do not share this OTP with anyone.`,
-      html: `Your OTP for verification is <b>${result.otp}</b>. This OTP is valid for 10 minutes. Do not share this OTP with anyone.`,
+      subject: 'Email Verification OTP',
+      text: generateOTPEmailText({ otp: result.otp }),
+      html: generateOTPEmailHTML({ otp: result.otp }),
     });
 
     return {
