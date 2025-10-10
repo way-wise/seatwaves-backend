@@ -30,4 +30,5 @@ export const createEventScehema = z.object({
   latitude: z.string().optional(),
   longitude: z.string().optional(),
   tickets: z.array(ticketSchema).optional().default([]),
+  originUrl: z.string(),
 });

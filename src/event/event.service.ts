@@ -239,9 +239,9 @@ export class EventService {
       throw new NotAcceptableException('Seller not found');
     }
 
-    if (!seller.stripeAccountId) {
-      throw new NotAcceptableException('Seller not onboarding complete');
-    }
+    // if (!seller.stripeAccountId) {
+    //   throw new NotAcceptableException('Seller not onboarding complete');
+    // }
 
     //check event already exists
     const existingEvent = await this.prisma.event.findUnique({
@@ -292,6 +292,15 @@ export class EventService {
             sellerId: sellerId,
             metadata: parsedData.data.metadata,
             categoryId: parsedData.data.categoryId,
+            city: parsedData.data.city,
+            country: parsedData.data.country,
+            address: parsedData.data.address,
+            latitude: parsedData.data.latitude,
+            longitude: parsedData.data.longitude,
+            seatmapImage: parsedData.data.seatmapImage,
+            venueImage: parsedData.data.venuImage,
+            timezone: parsedData.data.timezone,
+            originUrl: parsedData.data.originUrl,
           },
         });
         let ticketsCreated = 0;
