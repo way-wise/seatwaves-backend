@@ -7,15 +7,22 @@ import { AuthGuard } from '@nestjs/passport';
 export class TransactionController {
   constructor(private readonly transactionService: TransactionService) {}
 
-  //GET host transactions
-  @Get('host')
+  //GET seller transactions
+  @Get('seller/payouts')
   @UseGuards(AuthGuard('jwt'))
   async getHostTransactions(@Req() req, @Query() query: TransactionQuery) {
-    return this.transactionService.getHostTransactions(req.user.userId, query);
+    return this.transactionService.getSellerPayouts(req.user.userId, query);
+  }
+
+  //Get User Payments
+  @Get('user/payments')
+  @UseGuards(AuthGuard('jwt'))
+  async getUserPayments(@Req() req, @Query() query: TransactionQuery) {
+    return this.transactionService.getUserPayments(req.user.userId, query);
   }
 
   //GET invoice
-  @Get('host/:id/invoice')
+  @Get('seller/payouts/:id/invoice')
   @UseGuards(AuthGuard('jwt'))
   async getInvoice(@Param('id') id: string) {
     return this.transactionService.getInvoice(id);

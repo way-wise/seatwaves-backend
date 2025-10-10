@@ -653,6 +653,40 @@ export class StripeController {
   }
 
   /**
+   * POST /stripe/dev/test-balance
+   * Developer helper to instantly add test-mode balance to the platform Stripe account
+   * NOTE: Disabled in production
+   */
+  @Post('dev/test-balance')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiOperation({
+    summary: 'DEV ONLY: Add instant Stripe test balance (non-production)',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Test balance added to Stripe (test mode)',
+  })
+  async addTestBalance(
+    @Body()
+    body: {
+      amount: number; // dollars
+      currency?: string; // default usd
+      description?: string;
+    },
+  ) {
+    const res = await this.stripeService.addInstantTestBalance({
+      amount: 1000,
+      currency: 'usd',
+      description: 'Test balance added to Stripe (test mode)',
+    });
+    return {
+      success: true,
+      message: 'Stripe test balance added',
+      data: res,
+    };
+  }
+
+  /**
    * POST /stripe/payment-intent/:id/confirm
    * Confirms payment intent after customer authorization
    *

@@ -675,6 +675,179 @@ export class TransactionService {
     };
   }
 
+  //get user payments
+  async getUserPayments(userId: string, query: TransactionQuery) {
+    const {
+      search,
+      limit = '10',
+      page = '1',
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      from,
+      to,
+    } = transactionQuerySchema.parse(query);
+
+    const limitNum = parseInt(limit);
+    const pageNum = parseInt(page);
+    const skip = (pageNum - 1) * limitNum;
+
+    const where: Prisma.TransactionWhereInput = {
+      payerId: userId,
+      type: TransactionType.BOOKING_PAYMENT,
+    };
+
+    // Date range on createdAt
+    if (from || to) {
+      const createdAt: any = {};
+      if (from) {
+        const d = new Date(from);
+        if (!isNaN(d.getTime()))
+          createdAt.gte = new Date(d.setHours(0, 0, 0, 0));
+      }
+      if (to) {
+        const d = new Date(to);
+        if (!isNaN(d.getTime()))
+          createdAt.lte = new Date(d.setHours(23, 59, 59, 999));
+      }
+      if (Object.keys(createdAt).length > 0) {
+        (where as any).createdAt = createdAt;
+      }
+    }
+
+    if (search && typeof search === 'string' && search.trim().length > 0) {
+      const s = search.trim();
+      (where as any).OR = [
+        { id: { equals: s } },
+        { externalTxnId: { contains: s, mode: 'insensitive' } } as any,
+        { payer: { name: { contains: s, mode: 'insensitive' } } } as any,
+        { payer: { email: { contains: s, mode: 'insensitive' } } } as any,
+        { payee: { name: { contains: s, mode: 'insensitive' } } } as any,
+        { payee: { email: { contains: s, mode: 'insensitive' } } } as any,
+      ];
+    }
+
+    const [data, total] = await Promise.all([
+      this.prisma.transaction.findMany({
+        where,
+        skip,
+        take: limitNum,
+        orderBy: { [sortBy]: sortOrder },
+        select: {
+          id: true,
+          amount: true,
+          status: true,
+          processedAt: true,
+          createdAt: true,
+        },
+      }),
+      this.prisma.transaction.count({ where }),
+    ]);
+
+    return {
+      data,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum),
+        next: skip + limitNum < total,
+        prev: pageNum > 1,
+        from,
+        to,
+      },
+    };
+  }
+  async getSellerPayouts(userId: string, query: TransactionQuery) {
+    const {
+      search,
+      limit = '10',
+      page = '1',
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      from,
+      to,
+    } = transactionQuerySchema.parse(query);
+
+    const limitNum = parseInt(limit);
+    const pageNum = parseInt(page);
+    const skip = (pageNum - 1) * limitNum;
+
+    const where: Prisma.TransactionWhereInput = {
+      payeeId: userId,
+      type: TransactionType.SELLER_PAYOUT,
+    };
+
+    // Date range on createdAt
+    if (from || to) {
+      const createdAt: any = {};
+      if (from) {
+        const d = new Date(from);
+        if (!isNaN(d.getTime()))
+          createdAt.gte = new Date(d.setHours(0, 0, 0, 0));
+      }
+      if (to) {
+        const d = new Date(to);
+        if (!isNaN(d.getTime()))
+          createdAt.lte = new Date(d.setHours(23, 59, 59, 999));
+      }
+      if (Object.keys(createdAt).length > 0) {
+        (where as any).createdAt = createdAt;
+      }
+    }
+
+    if (search && typeof search === 'string' && search.trim().length > 0) {
+      const s = search.trim();
+      (where as any).OR = [
+        { id: { equals: s } },
+        { externalTxnId: { contains: s, mode: 'insensitive' } } as any,
+        { payer: { name: { contains: s, mode: 'insensitive' } } } as any,
+        { payer: { email: { contains: s, mode: 'insensitive' } } } as any,
+        { payee: { name: { contains: s, mode: 'insensitive' } } } as any,
+        { payee: { email: { contains: s, mode: 'insensitive' } } } as any,
+      ];
+    }
+
+    const [data, total] = await Promise.all([
+      this.prisma.transaction.findMany({
+        where,
+        skip,
+        take: limitNum,
+        orderBy: { [sortBy]: sortOrder },
+        include: {
+          payer: { select: { id: true, name: true, email: true } },
+          booking: {
+            select: {
+              id: true,
+              ticket: {
+                select: {
+                  id: true,
+                  eventId: true,
+                  event: { select: { id: true, title: true } },
+                },
+              },
+            },
+          },
+          parentTransaction: { select: { id: true, type: true } },
+        },
+      }),
+      this.prisma.transaction.count({ where }),
+    ]);
+
+    return {
+      data,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum),
+        next: skip + limitNum < total,
+        prev: pageNum > 1,
+        from,
+        to,
+      },
+    };
+  }
+
   async getInvoice(id: string) {
     const transaction = await this.prisma.transaction.findUnique({
       where: { id },
@@ -729,8 +902,6 @@ export class TransactionService {
       payerId,
       payeeId,
       bookingId,
-      couponId,
-      experienceId,
       parentTransactionId,
       externalTxnId,
       stripePaymentIntent,

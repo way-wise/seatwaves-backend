@@ -8,6 +8,8 @@ export const transactionQuerySchema = z.object({
   status: z.nativeEnum(TransactionStatus).optional(),
   sortBy: z.enum(['createdAt', 'amount']).optional(),
   sortOrder: z.enum(['asc', 'desc']).optional(),
+  from: z.string().optional(),
+  to: z.string().optional(),
   dateRange: z
     .enum(['last7days', 'last30days', 'last3months', 'last6months', 'lastyear'])
     .optional(),

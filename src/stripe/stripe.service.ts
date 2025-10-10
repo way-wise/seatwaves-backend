@@ -90,11 +90,53 @@ export class StripeService {
     }
 
     this.stripe = new Stripe(secretKey);
-
     this.platformFeePercentage = this.configService.get<number>(
       'PLATFORM_FEE_PERCENTAGE',
       5, // Default 5%
     );
+  }
+
+  /**
+   * Developer helper: Add instant test balance to the platform account (TEST MODE ONLY)
+   */
+  async addInstantTestBalance(params: {
+    amount: number; // in dollars
+    currency?: string; // default usd
+    description?: string;
+  }) {
+    const env = this.configService.get<string>('NODE_ENV') || 'development';
+    if (env === 'production') {
+      throw new ForbiddenException('This endpoint is disabled in production');
+    }
+
+    const amountCents = Math.round((params.amount || 0) * 100);
+    if (amountCents <= 0) {
+      throw new BadRequestException('Amount must be greater than 0');
+    }
+
+    try {
+      // Stripe Test Helpers: balance transactions
+      // Adds funds to the platform's test-mode balance instantly
+      const bt = await (
+        this.stripe as any
+      ).test_helpers.balance_transactions.create({
+        amount: amountCents,
+        currency: (params.currency || 'usd').toLowerCase(),
+        description: params.description || 'Developer top-up',
+      });
+
+      this.logger.log(
+        `Added test balance: ${(amountCents / 100).toFixed(2)} ${(params.currency || 'usd').toUpperCase()}`,
+      );
+
+      return bt;
+    } catch (error) {
+      this.logger.error(
+        'Failed to add test balance via Stripe test helpers',
+        error,
+      );
+      throw new InternalServerErrorException('Failed to add test balance');
+    }
   }
   // ============= MARKETPLACE ONBOARDING =============
   // Note: Only admin has the main Stripe account
