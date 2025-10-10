@@ -227,6 +227,9 @@ export class BookingService {
           select: {
             id: true,
             seatDetails: true,
+            ticketId: true,
+            ticketType: true,
+            price: true,
             event: {
               select: {
                 id: true,
