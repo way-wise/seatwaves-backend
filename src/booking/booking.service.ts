@@ -5,6 +5,7 @@ import {
   Logger,
   NotAcceptableException,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
@@ -184,6 +185,83 @@ export class BookingService {
         totalPages: Math.ceil(total / parseInt(limit)),
       },
     };
+  }
+
+  async invoice(id: string, userId: string) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id, userId },
+      select: {
+        id: true,
+        userId: true,
+        price: true,
+        discount: true,
+        vat: true,
+        tax: true,
+        total: true,
+        deliveryType: true,
+        paymentMethod: true,
+        pickupAddress: true,
+        phone: true,
+        email: true,
+        status: true,
+        createdAt: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+          },
+        },
+        transactions: {
+          select: {
+            id: true,
+            amount: true,
+            type: true,
+            status: true,
+            processedAt: true,
+            createdAt: true,
+          },
+        },
+        ticket: {
+          select: {
+            id: true,
+            seatDetails: true,
+            event: {
+              select: {
+                id: true,
+                title: true,
+                startTime: true,
+                endTime: true,
+                venue: true,
+                duration: true,
+                city: true,
+                address: true,
+                country: true,
+                timezone: true,
+                category: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+            seller: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!booking) throw new NotFoundException('This booking does not exist');
+    if (booking.userId !== userId) throw new UnauthorizedException();
+
+    return { status: true, data: booking };
   }
 
   // ✅ Host - View bookings for own experiences

@@ -58,6 +58,17 @@ export class BookingController {
     return await this.bookingService.findByGuest(req.user.userId, query);
   }
 
+  // Invoice
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  // @Permissions('booking.invoice')
+  @Get(':id/invoice')
+  async invoice(@Param('id') id: string, @Req() req) {
+    if (!req.user) {
+      throw new UnauthorizedException();
+    }
+    return await this.bookingService.invoice(id, req.user.userId);
+  }
+
   //callback url
   @Get('/success')
   async success(@Query() query: any) {
