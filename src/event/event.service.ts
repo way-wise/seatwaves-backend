@@ -648,7 +648,7 @@ export class EventService {
 
     const {
       page = '1',
-      limit = '1',
+      limit = '10',
       search,
       sortBy = 'createdAt',
       sortOrder = 'desc',
