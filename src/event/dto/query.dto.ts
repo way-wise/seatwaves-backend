@@ -6,4 +6,5 @@ export const queryEventSchema = z.object({
   page: z.string().optional(),
   sortBy: z.enum(['date', 'createdAt', 'updatedAt']).optional(),
   sortOrder: z.enum(['asc', 'desc']).optional(),
+  isActive: z.enum(['true', 'false']).optional(),
 });

@@ -7,6 +7,7 @@ import {
   Put,
   Query,
   Req,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import { Permissions } from 'src/common/decorators/permissions.decorator';
@@ -27,6 +28,16 @@ export class EventController {
   @Get('/:id')
   getEvent(@Param('id') id: string) {
     return this.eventService.getEvent(id);
+  }
+
+  //get seller listing
+  @UseGuards(AuthGuard('jwt'))
+  @Get('/seller/listing')
+  getSellerListing(@Query() query: any, @Req() req) {
+    if (!req.user) {
+      throw new UnauthorizedException();
+    }
+    return this.eventService.getSellerListing(query, req.user.userId);
   }
 
   @Get('/admin/all')
@@ -50,9 +61,9 @@ export class EventController {
   }
 
   //get events by id
-  @Get(':id/seats')
-  getSeatsByEventId(@Param('id') id: string, @Query() query) {
-    return this.eventService.getticketsByEventId(id, query);
+  @Get(':eventId/seats')
+  getSeatsByEventId(@Param('eventId') eventId: string, @Query() query) {
+    return this.eventService.getticketsByEventId(eventId, query);
   }
 
   @Get('/seller/:id')

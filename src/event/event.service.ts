@@ -14,6 +14,7 @@ import { createEventScehema, ticketSchema } from './dto/create.event.dto';
 import { eventQuerySchema } from './dto/event.query.dto';
 import { ticketQuerySchema } from './dto/ticket.query.dto';
 import { updateticketSchema } from './dto/update.ticket.dto';
+import { queryEventSchema } from './dto/query.dto';
 
 @Injectable()
 export class EventService {
@@ -159,7 +160,7 @@ export class EventService {
   }
 
   // get ticket by event Id
-  async getticketsByEventId(eventId: string, query) {
+  async getticketsByEventId(eventId: string, query: any) {
     const parsedQuery = ticketQuerySchema.safeParse(query);
 
     if (!parsedQuery.success) {
@@ -167,7 +168,7 @@ export class EventService {
       throw new NotAcceptableException('Invalid query parameters');
     }
     const event = await this.prisma.event.findUnique({
-      where: { id: eventId },
+      where: { eventId: eventId },
     });
 
     if (!event) {
@@ -633,6 +634,59 @@ export class EventService {
     return {
       status: true,
       data: events,
+      meta: {
+        total,
+        page: pageInt,
+        limit: limitInt,
+      },
+    };
+  }
+
+  async getSellerListing(query: any, sellerId: string) {
+    const parseData = queryEventSchema.parse(query);
+
+    const {
+      page = '1',
+      limit = '10',
+      search,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      isActive,
+    } = parseData;
+
+    const pageInt = parseInt(page, 10);
+    const limitInt = parseInt(limit, 10);
+    const offset = (pageInt - 1) * limitInt;
+    const where: any = {};
+
+    if (isActive) {
+      where.event = { status: 'ONGOING' };
+    }
+
+    if (search) {
+      where.OR = [
+        { event: { title: { contains: search, mode: 'insensitive' } } },
+        { event: { description: { contains: search, mode: 'insensitive' } } },
+        { event: { venue: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+
+    const [tickets, total] = await this.prisma.$transaction([
+      this.prisma.ticket.findMany({
+        where,
+        orderBy: { [sortBy]: sortOrder },
+        skip: offset,
+        take: limitInt,
+        include: {
+          event: true,
+        },
+      }),
+      this.prisma.ticket.count({ where }),
+    ]);
+
+    return {
+      status: true,
+      data: tickets,
       meta: {
         total,
         page: pageInt,
