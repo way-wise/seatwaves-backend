@@ -669,9 +669,9 @@ export class UsersService {
     if (status === 'VERIFIED') {
       // assign HOST role (idempotent)
       const hostRole = await this.prisma.role.findUnique({
-        where: { name: 'HOST' },
+        where: { name: 'SELLER' },
       });
-      if (!hostRole) throw new NotFoundException('HOST role not found.');
+      if (!hostRole) throw new NotFoundException('SELLER role not found.');
 
       await this.prisma.userRoles.upsert({
         where: {
@@ -689,31 +689,31 @@ export class UsersService {
 
       //notification send to user
       this.notificationService.sendNotification(businessInfo.sellerId, {
-        title: 'Host Verification',
-        message: `${businessInfo.seller.name} has been approved as a host.`,
+        title: 'Seller Verification',
+        message: `${businessInfo.seller.name} has been approved as a seller.`,
         type: 'NOTIFY',
       });
 
       //send email notification to user
       this.emailService.sendEmail(
         businessInfo.seller.email,
-        'Host Verification',
-        `${businessInfo.seller.name} has been approved as a host.`,
-        `<p>${businessInfo.seller.name} has been approved as a host.</p> </br> <p>${message}</p>`,
+        'Seller Verification',
+        `${businessInfo.seller.name} has been approved as a seller.`,
+        `<p>${businessInfo.seller.name} has been approved as a seller.</p> </br> <p>${message}</p>`,
       );
     } else {
       //notification send to user
       this.notificationService.sendNotification(businessInfo.sellerId, {
-        title: 'Host Verification',
-        message: `${businessInfo.seller.name} has been rejected as a host.`,
+        title: 'Seller Verification',
+        message: `${businessInfo.seller.name} has been rejected as a seller.`,
         type: 'NOTIFY',
       });
       //send email notification to user
       this.emailService.sendEmail(
         businessInfo.seller.email,
-        'Host Verification',
-        `${businessInfo.seller.name} has been rejected as a host.`,
-        `<p>${businessInfo.seller.name} has been rejected as a host.</p> </br> <p>${message}</p>`,
+        'Seller Verification',
+        `${businessInfo.seller.name} has been rejected as a seller.`,
+        `<p>${businessInfo.seller.name} has been rejected as a seller.</p> </br> <p>${message}</p>`,
       );
     }
 

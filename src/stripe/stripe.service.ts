@@ -191,8 +191,8 @@ export class StripeService {
       // Create onboarding link
       const accountLink = await this.stripe.accountLinks.create({
         account: accountId,
-        refresh_url: `${this.configService.get('APP_CLIENT_URL')}/onboarding/refresh?accountId=${accountId}`,
-        return_url: `${this.configService.get('APP_CLIENT_URL')}/onboarding/complete?accountId=${accountId}`,
+        refresh_url: `${this.configService.get('APP_CLIENT_URL')}/dashboard/onboarding/refresh?accountId=${accountId}`,
+        return_url: `${this.configService.get('APP_CLIENT_URL')}/dashboard/onboarding/complete?accountId=${accountId}`,
         type: 'account_onboarding',
       });
 
@@ -474,8 +474,8 @@ export class StripeService {
           },
         ],
         mode: 'payment',
-        success_url: `${this.configService.get('APP_CLIENT_URL')}/booking/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${this.configService.get('APP_CLIENT_URL')}/booking/cancel`,
+        success_url: `${this.configService.get('APP_CLIENT_URL')}/dashboard/orders/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${this.configService.get('APP_CLIENT_URL')}/dashboard/orders/cancel`,
         // expires_at: Math.floor(Date.now() / 1000) + 10 * 60,
         customer: customer.id,
         payment_intent_data: {
