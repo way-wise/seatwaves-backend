@@ -638,6 +638,7 @@ export class EventService {
         total,
         page: pageInt,
         limit: limitInt,
+        totalPages: Math.ceil(total / limitInt),
       },
     };
   }
@@ -647,7 +648,7 @@ export class EventService {
 
     const {
       page = '1',
-      limit = '10',
+      limit = '1',
       search,
       sortBy = 'createdAt',
       sortOrder = 'desc',
@@ -691,6 +692,7 @@ export class EventService {
         total,
         page: pageInt,
         limit: limitInt,
+        totalPages: Math.ceil(total / limitInt),
       },
     };
   }
