@@ -172,7 +172,7 @@ export class EventService {
     });
 
     if (!event) {
-      throw new NotAcceptableException('Event not found');
+      throw new NotFoundException('Event not found');
     }
 
     const {

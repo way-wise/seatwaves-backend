@@ -9,7 +9,8 @@ import { DashboardService } from './dashboard.service';
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
-  @Permissions('seller.dashboard.view')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  // @Permissions('seller.dashboard.view')
   @Get()
   async getDashboard(@Req() req, @Query() query: any) {
     return this.dashboardService.getDashboardData(req.user.userId, query);

@@ -6,7 +6,10 @@ export const ticketQuerySchema = z.object({
   limit: z.string().optional().default('10'),
   cursor: z.string().optional(),
   search: z.string().optional(),
-  sortBy: z.enum(['createdAt', 'updatedAt']).optional().default('createdAt'),
+  sortBy: z
+    .enum(['price', 'createdAt', 'updatedAt'])
+    .optional()
+    .default('createdAt'),
   sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
 });
 

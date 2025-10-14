@@ -33,17 +33,17 @@ export class DashboardService {
     const { startDate, endDate } = this.getDateRange(duration);
 
     const [
-      upcomingGuests,
+      upcomingUser,
       newBookings,
       unreadMessages,
       pendingReviews,
       earnings,
-      recentBookings,
+      recentOrders,
       activeConversations,
       lastThreePendingReviews,
       totalRevenue,
-      completedBookings,
-      cancelledBookings,
+      deliveredOrders,
+      cancelOrders,
       averageRating,
     ] = await Promise.all([
       // Upcoming guests (confirmed bookings for this seller's events within event time range)
@@ -188,9 +188,6 @@ export class DashboardService {
       _count: { _all: true },
     });
 
-    // NOTE: Experience model does not exist in current schema; omit revenueByExperience
-    const revenueByExperience: any[] = [];
-
     // Time series (daily) for bookings/guests/revenue within range
     const bookingsForTrend = await this.prisma.booking.findMany({
       where: {
@@ -307,7 +304,7 @@ export class DashboardService {
 
     return {
       // Core metrics
-      upcomingGuests,
+      upcomingUser,
       newBookings,
       unreadMessages,
       pendingReviews,
@@ -317,38 +314,28 @@ export class DashboardService {
       totalRevenue: totalRevenue._sum.total || 0,
 
       // Booking metrics
-      completedBookings,
-      cancelledBookings,
+      deliveredOrders,
+      cancelOrders,
 
       // Quality metrics
       averageRating: averageRating._avg.rating || 0,
 
       // Recent data
-      recentBookings,
+      recentOrders,
       activeConversations,
       lastThreePendingReviews,
 
       // Chart-friendly datasets
       charts: {
-        bookingsTrend, // line
+        ordersTrend: bookingsTrend, // line
         guestsTrend, // line/area
         revenueTrend, // line/area
-        bookingsByStatus: bookingsByStatus.map((x) => ({
+        orderStatus: bookingsByStatus.map((x) => ({
           status: x.status,
           count: x._count._all,
         })), // pie/donut
         ratingDistribution, // bar
-        revenueByExperience, // bar (top 5)
       },
-
-      // Payout snapshot for cards
-      payoutSummary: {
-        currentBalance: Number(currentBalanceAgg._sum.sellerAmount || 0),
-        upcomingPayout: Number(upcomingPayoutAgg._sum.amount || 0),
-        totalWithdraw: Number(totalWithdrawAgg._sum.amount || 0),
-        pendingWithdraw: Number(pendingWithdrawAgg._sum.amount || 0),
-      },
-
       // Meta information
       duration,
       dateRange: {
