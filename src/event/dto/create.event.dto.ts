@@ -12,10 +12,10 @@ export const ticketSchema = z.object({
 });
 
 export const createEventScehema = z.object({
-  title: z.string().min(3).max(100),
-  description: z.string().min(10).max(500).optional(),
+  title: z.string(),
+  description: z.string().optional(),
   eventId: z.string().min(1),
-  venue: z.string().min(3).max(100),
+  venue: z.string(),
   startTime: z.coerce.date(),
   endTime: z.coerce.date().optional(),
   duration: z.number().optional().default(0), // duration in minutes
