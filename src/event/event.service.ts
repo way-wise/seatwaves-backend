@@ -204,6 +204,42 @@ export class EventService {
         skip: offset,
         take: limitInt,
         cursor: cursor ? { id: cursor } : undefined,
+        select: {
+          id: true,
+          ticketId: true,
+          ticketType: true,
+          eventId: true,
+          price: true,
+          discount: true,
+          discountType: true,
+          seatDetails: true,
+          thumbnail: true,
+          description: true,
+          note: true,
+          isBooked: true,
+          metadata: true,
+          seller: {
+            select: {
+              id: true,
+              name: true,
+              averageRating: true,
+              _count: {
+                select: {
+                  bookings: {
+                    where: {
+                      status: 'DELIVERED',
+                    },
+                  },
+                  events: {
+                    where: {
+                      status: 'ONGOING',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
       }),
       this.prisma.ticket.count({ where }),
     ]);
@@ -213,11 +249,13 @@ export class EventService {
 
     return {
       status: true,
-      data: tickets,
+      event: event,
+      tickets,
       meta: {
         total,
         page: pageInt,
         limit: limitInt,
+        totalPages: Math.ceil(total / limitInt),
         nextCursor,
       },
     };

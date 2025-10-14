@@ -61,8 +61,8 @@ export class EventController {
   }
 
   //get events by id
-  @Get(':eventId/seats')
-  getSeatsByEventId(@Param('eventId') eventId: string, @Query() query) {
+  @Get(':eventId/tickets')
+  getSeatsByEventId(@Param('eventId') eventId: string, @Query() query: any) {
     return this.eventService.getticketsByEventId(eventId, query);
   }
 

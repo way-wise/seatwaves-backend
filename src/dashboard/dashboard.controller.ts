@@ -9,20 +9,20 @@ import { DashboardService } from './dashboard.service';
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
-  @Permissions('host.dashboard.view')
+  @Permissions('seller.dashboard.view')
   @Get()
   async getDashboard(@Req() req, @Query() query: any) {
     return this.dashboardService.getDashboardData(req.user.userId, query);
   }
 
-  @Permissions('host.earnings.view')
-  @Get('/host/earnings')
+  @Permissions('seller.earnings.view')
+  @Get('/seller/earnings')
   async getHostEarnings(@Req() req, @Query() query: any) {
     return this.dashboardService.getHostEarnings(req.user.userId, query);
   }
 
-  @Permissions('host.calendar.view')
-  @Get('/host/calendar')
+  @Permissions('seller.calendar.view')
+  @Get('/seller/calendar')
   async getHostCalendar(@Req() req, @Query() query: any) {
     return this.dashboardService.getHostCalendar(req.user.userId, query);
   }

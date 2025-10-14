@@ -25,7 +25,7 @@ export class DashboardService {
     private readonly stripeService: StripeService,
   ) {}
 
-  async getDashboardData(userId: string, query: DashboardQueryDto) {
+  async getDashboardData(sellerId: string, query: DashboardQueryDto) {
     const parsedQuery = DashboardQuerySchema.parse(query);
     const { duration = '7d' } = parsedQuery;
 
@@ -52,7 +52,7 @@ export class DashboardService {
           status: 'CONFIRMED',
           ticket: {
             event: {
-              sellerId: userId,
+              sellerId: sellerId,
               startTime: { gte: startDate, lte: endDate },
             },
           },
@@ -63,14 +63,14 @@ export class DashboardService {
       this.prisma.booking.count({
         where: {
           createdAt: { gte: startDate, lte: endDate },
-          ticket: { event: { sellerId: userId } },
+          ticket: { event: { sellerId: sellerId } },
         },
       }),
 
       // Unread messages in the selected period
       this.prisma.message.count({
         where: {
-          receiverId: userId,
+          receiverId: sellerId,
           isRead: false,
           sentAt: { gte: startDate, lte: endDate },
         },
@@ -79,18 +79,18 @@ export class DashboardService {
       // Pending reviews in the selected period
       this.prisma.review.count({
         where: {
-          revieweeId: userId,
+          revieweeId: sellerId,
           status: 'PENDING',
           createdAt: { gte: startDate, lte: endDate },
         },
       }),
 
       // Earnings by month (only for this user)
-      this.getEarningsByMonth(userId),
+      this.getEarningsByMonth(sellerId),
 
       // Latest 5 bookings for this seller's events
       this.prisma.booking.findMany({
-        where: { ticket: { event: { sellerId: userId } } },
+        where: { ticket: { event: { sellerId: sellerId } } },
         take: 5,
         orderBy: { createdAt: 'desc' },
         include: {
@@ -108,7 +108,7 @@ export class DashboardService {
 
       // Last 5 conversations
       this.prisma.messageRoom.findMany({
-        where: { receiverId: userId },
+        where: { receiverId: sellerId },
         take: 5,
         orderBy: { createdAt: 'desc' },
         include: {
@@ -129,7 +129,7 @@ export class DashboardService {
 
       // Last 3 pending reviews about this seller
       this.prisma.review.findMany({
-        where: { revieweeId: userId, status: 'PENDING' },
+        where: { revieweeId: sellerId, status: 'PENDING' },
         take: 3,
         orderBy: { createdAt: 'desc' },
         include: {
@@ -143,7 +143,7 @@ export class DashboardService {
         where: {
           status: 'DELIVERED',
           createdAt: { gte: startDate, lte: endDate },
-          ticket: { event: { sellerId: userId } },
+          ticket: { event: { sellerId: sellerId } },
         },
         _sum: { total: true },
       }),
@@ -153,7 +153,7 @@ export class DashboardService {
         where: {
           status: 'DELIVERED',
           createdAt: { gte: startDate, lte: endDate },
-          ticket: { event: { sellerId: userId } },
+          ticket: { event: { sellerId: sellerId } },
         },
       }),
 
@@ -162,14 +162,14 @@ export class DashboardService {
         where: {
           status: 'CANCELLED',
           createdAt: { gte: startDate, lte: endDate },
-          ticket: { event: { sellerId: userId } },
+          ticket: { event: { sellerId: sellerId } },
         },
       }),
 
       // Average rating for user's experiences
       this.prisma.review.aggregate({
         where: {
-          revieweeId: userId,
+          revieweeId: sellerId,
           status: 'APPROVED',
           createdAt: { gte: startDate, lte: endDate },
         },
@@ -182,7 +182,7 @@ export class DashboardService {
     const bookingsByStatus = await this.prisma.booking.groupBy({
       by: ['status'],
       where: {
-        ticket: { event: { sellerId: userId } },
+        ticket: { event: { sellerId: sellerId } },
         createdAt: { gte: startDate, lte: endDate },
       },
       _count: { _all: true },
@@ -194,7 +194,7 @@ export class DashboardService {
     // Time series (daily) for bookings/guests/revenue within range
     const bookingsForTrend = await this.prisma.booking.findMany({
       where: {
-        ticket: { event: { sellerId: userId } },
+        ticket: { event: { sellerId: sellerId } },
         createdAt: { gte: startDate, lte: endDate },
       },
       select: { createdAt: true, total: true },
@@ -240,7 +240,7 @@ export class DashboardService {
     // Rating distribution (1-5) for bar chart
     const reviewsForDist = await this.prisma.review.findMany({
       where: {
-        revieweeId: userId,
+        revieweeId: sellerId,
         status: 'APPROVED',
         createdAt: { gte: startDate, lte: endDate },
       },
@@ -264,7 +264,7 @@ export class DashboardService {
         where: {
           type: 'BOOKING_PAYMENT',
           status: 'SUCCESS',
-          event: { sellerId: userId },
+          event: { sellerId: sellerId },
           createdAt: { gte: startDate, lte: endDate },
         },
         _sum: { sellerAmount: true },
@@ -274,14 +274,14 @@ export class DashboardService {
         where: {
           type: 'SELLER_PAYOUT',
           status: { in: ['PENDING', 'PROCESSING'] },
-          payeeId: userId,
+          payeeId: sellerId,
         },
         _sum: { amount: true },
       }),
       // Completed withdrawals for seller
       this.prisma.withdrawalRequest.aggregate({
         where: {
-          sellerId: userId,
+          sellerId: sellerId,
           status: 'COMPLETED',
           OR: [
             { processedAt: { gte: startDate, lte: endDate } },
@@ -298,7 +298,7 @@ export class DashboardService {
       // Pending withdrawals for seller
       this.prisma.withdrawalRequest.aggregate({
         where: {
-          sellerId: userId,
+          sellerId: sellerId,
           status: { in: ['PENDING', 'APPROVED', 'PROCESSING'] },
         },
         _sum: { amount: true },
