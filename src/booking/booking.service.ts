@@ -62,7 +62,7 @@ export class BookingService {
     const bookings = await this.prisma.booking.findMany({
       where: {
         userId,
-        status: BookingStatus.CONFIRMED,
+        status: { in: [BookingStatus.CONFIRMED, BookingStatus.SHIPPED] },
       },
 
       include: {
@@ -356,6 +356,40 @@ export class BookingService {
       limit: parseInt(limit),
       totalPages: Math.ceil(total / parseInt(limit)),
     };
+  }
+
+  async updateSellerStatus(
+    id: string,
+    status: BookingStatus,
+    sellerId: string,
+  ) {
+    const booking = await this.prisma.booking.findFirst({
+      where: {
+        id,
+        deletedAt: null,
+      },
+      include: {
+        ticket: {
+          select: {
+            sellerId: true,
+          },
+        },
+      },
+    });
+
+    if (!booking) throw new NotFoundException('This booking does not exist');
+
+    if (sellerId !== booking.ticket.sellerId) {
+      throw new UnauthorizedException(
+        'You are not allowed to update this booking',
+      );
+    }
+
+    await this.prisma.booking.update({
+      where: { id },
+      data: { status },
+    });
+    return { status: true, message: 'Booking status updated successfully' };
   }
 
   // findHostAppBookings with cursor pagination

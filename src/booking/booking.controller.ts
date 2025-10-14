@@ -17,6 +17,7 @@ import { ZodValidationPipe } from 'src/common/zodValidationPipe';
 import { createBookingDto, createBookingSchema } from './dto/booking.dto';
 import { PermissionsGuard } from 'src/common/guards/permissions.guard';
 import { Permissions } from 'src/common/decorators/permissions.decorator';
+import { BookingStatus } from '@prisma/client';
 
 @Controller('bookings')
 export class BookingController {
@@ -102,6 +103,26 @@ export class BookingController {
     return await this.bookingService.findByHost(req.user.userId, query);
   }
 
+  //update seller status of booking
+  @UseGuards(AuthGuard('jwt'))
+  @Permissions('booking.update')
+  @Patch(':orderId/order-status')
+  async updateSellerStatus(
+    @Param('orderId') orderId: string,
+    @Body() body: { status: BookingStatus },
+    @Req() req,
+  ) {
+    if (!req.user) {
+      throw new UnauthorizedException('User not found');
+    }
+    return this.bookingService.updateSellerStatus(
+      orderId,
+      body.status,
+      req.user.userId,
+    );
+  }
+
+  // ✅ Seller - Get bookings for app
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('booking.read')
   @Get('/seller/app')
