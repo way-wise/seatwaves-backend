@@ -169,6 +169,15 @@ export class EventService {
     }
     const event = await this.prisma.event.findUnique({
       where: { eventId: eventId },
+      include: {
+        _count: {
+          select: {
+            tickets: {
+              where: { isBooked: false },
+            },
+          },
+        },
+      },
     });
 
     if (!event) {
@@ -218,6 +227,8 @@ export class EventService {
           note: true,
           isBooked: true,
           metadata: true,
+          createdAt: true,
+          updatedAt: true,
           seller: {
             select: {
               id: true,
