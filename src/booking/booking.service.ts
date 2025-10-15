@@ -28,6 +28,16 @@ import { HostBookingQuerySchema } from './dto/queryCursor.dto';
 import { NotificationService } from 'src/notification/notification.service';
 import { emailQueue } from 'src/queues/email.queue';
 import { EmailService } from 'src/email/email.service';
+import {
+  generateBookingOTPEmailText,
+  generateBookingOTPEmailHTML,
+  generateBookingCancellationEmailText,
+  generateBookingCancellationEmailHTML,
+  generateBookingVerifiedBuyerEmailText,
+  generateBookingVerifiedBuyerEmailHTML,
+  generateBookingVerifiedSellerEmailText,
+  generateBookingVerifiedSellerEmailHTML,
+} from 'src/lib/email-template';
 import { StripeService } from 'src/stripe/stripe.service';
 import { adminQuerySchema } from './dto/admin.query.dto';
 
@@ -723,30 +733,22 @@ export class BookingService {
 
     // Send email to guest (non-blocking)
     try {
-      const subject = 'Your booking has been cancelled';
       const bookingLink = `${this.configService.get('APP_CLIENT_URL')}/bookings/${bookingId}`;
-      const refundLine =
-        refundAmount > 0
-          ? `Refunded: $${refundAmount.toFixed(2)}${fee ? ` (Cancellation fee: $${fee})` : ''}.`
-          : 'No refund was due based on the cancellation policy.';
-      const text = `Hi,
-
-Your booking (${bookingId}) has been cancelled.
-${refundLine}
-
-View details: ${bookingLink}
-
-Thank you.`;
-      const html = `<p>Hi,</p>
-<p>Your booking (<strong>${bookingId}</strong>) has been cancelled.</p>
-<p>${refundLine}</p>
-<p><a href="${bookingLink}">View booking details</a></p>
-<p>Thank you.</p>`;
 
       await this.emailService.sendEmailToUser(booking.userId, {
-        subject,
-        text,
-        html,
+        subject: 'Your booking has been cancelled',
+        text: generateBookingCancellationEmailText({
+          bookingId,
+          refundAmount,
+          cancellationFee: fee,
+          bookingLink,
+        }),
+        html: generateBookingCancellationEmailHTML({
+          bookingId,
+          refundAmount,
+          cancellationFee: fee,
+          bookingLink,
+        }),
       } as any);
     } catch (e) {
       this.logger.warn(
@@ -982,9 +984,15 @@ Thank you.`;
 
     await this.emailService.sendOTPEmail({
       to: booking.user.email,
-      subject: 'Booking OTP',
-      text: `Your OTP for booking is ${otpData.otp}. This OTP is valid for 10 minutes. Do not share this OTP with anyone.`,
-      html: `Your OTP for booking is <b>${otpData.otp}</b>. This OTP is valid for 10 minutes. Do not share this OTP with anyone.`,
+      subject: 'Booking Verification Code',
+      text: generateBookingOTPEmailText({
+        otp: otpData.otp,
+        bookingId: booking.id,
+      }),
+      html: generateBookingOTPEmailHTML({
+        otp: otpData.otp,
+        bookingId: booking.id,
+      }),
     });
 
     //Send Notification
@@ -1167,19 +1175,29 @@ Thank you.`;
 
     // Emails (non-blocking)
     this.emailService.sendEmailToUser(booking.user.id, {
-      subject: 'Booking Verified',
-      text: `Your booking has been verified successfully.`,
-      html: `<b>Your booking has been verified successfully.</b>`,
+      subject: 'Booking Verified Successfully',
+      text: generateBookingVerifiedBuyerEmailText({
+        bookingId: booking.id,
+        ticketTitle: booking.ticket?.event?.title,
+      }),
+      html: generateBookingVerifiedBuyerEmailHTML({
+        bookingId: booking.id,
+        ticketTitle: booking.ticket?.event?.title,
+      }),
     });
 
     this.emailService.sendEmailToUser(booking.ticket.sellerId, {
-      subject: 'Booking Verified',
-      text: payoutInitiated
-        ? 'A payout has been initiated for your delivered booking.'
-        : 'No payout amount to transfer for this delivered booking.',
-      html: payoutInitiated
-        ? '<b>A payout has been initiated for your delivered booking.</b>'
-        : '<b>No payout amount to transfer for this delivered booking.</b>',
+      subject: 'Booking Verified - Payout Initiated',
+      text: generateBookingVerifiedSellerEmailText({
+        bookingId: booking.id,
+        payoutAmount: payoutInitiated ? sellerAmount : undefined,
+        ticketTitle: booking.ticket?.event?.title,
+      }),
+      html: generateBookingVerifiedSellerEmailHTML({
+        bookingId: booking.id,
+        payoutAmount: payoutInitiated ? sellerAmount : undefined,
+        ticketTitle: booking.ticket?.event?.title,
+      }),
     });
 
     return {

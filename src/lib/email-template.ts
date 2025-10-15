@@ -30,6 +30,30 @@ interface AccountBlockedEmailOptions {
   blockedMinutes: number;
 }
 
+interface BookingOTPEmailOptions {
+  otp: string;
+  bookingId: string;
+  validityMinutes?: number;
+}
+
+interface BookingCancellationEmailOptions {
+  bookingId: string;
+  refundAmount: number;
+  cancellationFee?: number;
+  bookingLink: string;
+}
+
+interface BookingVerifiedBuyerEmailOptions {
+  bookingId: string;
+  ticketTitle?: string;
+}
+
+interface BookingVerifiedSellerEmailOptions {
+  bookingId: string;
+  payoutAmount?: number;
+  ticketTitle?: string;
+}
+
 // ============================================
 // BASE EMAIL STYLES (Reusable)
 // ============================================
@@ -564,6 +588,337 @@ export function generateAccountBlockedEmailHTML({
         
         <p class="greeting">
           Thank you for your understanding. We take account security seriously.
+        </p>
+      </div>
+      
+      <div class="footer">
+        <p class="footer-text">This is an automated message, please do not reply to this email.</p>
+        <p class="footer-text">© ${new Date().getFullYear()} SeatWaves. All rights reserved.</p>
+      </div>
+    </div>
+  </body>
+  </html>
+    `.trim();
+}
+
+// ============================================
+// 7. BOOKING OTP
+// ============================================
+
+export function generateBookingOTPEmailText({
+  otp,
+  bookingId,
+  validityMinutes = 10,
+}: BookingOTPEmailOptions): string {
+  return `Your booking verification code is ${otp}. Booking ID: ${bookingId}. This code is valid for ${validityMinutes} minutes. Show this code to the seller to verify your booking.`;
+}
+
+export function generateBookingOTPEmailHTML({
+  otp,
+  bookingId,
+  validityMinutes = 10,
+}: BookingOTPEmailOptions): string {
+  return `
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Booking Verification Code</title>
+    <style>${getBaseEmailStyles()}</style>
+  </head>
+  <body>
+    <div class="email-container">
+      <div class="header">
+        <h1>🎫 Booking Verification Code</h1>
+      </div>
+      
+      <div class="content">
+        <p class="greeting">Hello,</p>
+        
+        <p class="greeting">
+          Your booking has been confirmed! Use the verification code below to complete your booking with the seller.
+        </p>
+        
+        <div class="info">
+          <span class="alert-icon">📋</span>
+          <p class="alert-text">
+            <strong>Booking ID:</strong> ${bookingId}
+          </p>
+        </div>
+        
+        <div class="otp-container">
+          <div class="otp-label">Verification Code</div>
+          <div class="otp-code">${otp}</div>
+          <div class="validity">⏱️ Valid for ${validityMinutes} minutes</div>
+        </div>
+        
+        <div class="warning">
+          <span class="alert-icon">⚠️</span>
+          <p class="alert-text">
+            <strong>Important:</strong> Show this code to the seller to verify your booking. Do not share this code with anyone else.
+          </p>
+        </div>
+        
+        <div class="divider"></div>
+        
+        <p class="greeting">
+          If you didn't make this booking, please contact our support team immediately.
+        </p>
+      </div>
+      
+      <div class="footer">
+        <p class="footer-text">This is an automated message, please do not reply to this email.</p>
+        <p class="footer-text">© ${new Date().getFullYear()} SeatWaves. All rights reserved.</p>
+      </div>
+    </div>
+  </body>
+  </html>
+    `.trim();
+}
+
+// ============================================
+// 8. BOOKING CANCELLATION
+// ============================================
+
+export function generateBookingCancellationEmailText({
+  bookingId,
+  refundAmount,
+  cancellationFee,
+  bookingLink,
+}: BookingCancellationEmailOptions): string {
+  const refundLine =
+    refundAmount > 0
+      ? `Refunded: $${refundAmount.toFixed(2)}${cancellationFee ? ` (Cancellation fee: $${cancellationFee.toFixed(2)})` : ''}.`
+      : 'No refund was due based on the cancellation policy.';
+
+  return `Your booking (${bookingId}) has been cancelled. ${refundLine} View details: ${bookingLink}`;
+}
+
+export function generateBookingCancellationEmailHTML({
+  bookingId,
+  refundAmount,
+  cancellationFee,
+  bookingLink,
+}: BookingCancellationEmailOptions): string {
+  const hasRefund = refundAmount > 0;
+  const refundLine = hasRefund
+    ? `Refunded: $${refundAmount.toFixed(2)}${cancellationFee ? ` (Cancellation fee: $${cancellationFee.toFixed(2)})` : ''}`
+    : 'No refund was due based on the cancellation policy.';
+
+  return `
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Booking Cancelled</title>
+    <style>${getBaseEmailStyles()}</style>
+  </head>
+  <body>
+    <div class="email-container">
+      <div class="header">
+        <h1>❌ Booking Cancelled</h1>
+      </div>
+      
+      <div class="content">
+        <p class="greeting">Hello,</p>
+        
+        <p class="greeting">
+          Your booking has been cancelled as requested.
+        </p>
+        
+        <div class="info">
+          <span class="alert-icon">📋</span>
+          <p class="alert-text">
+            <strong>Booking ID:</strong> ${bookingId}
+          </p>
+        </div>
+        
+        <div class="${hasRefund ? 'success' : 'info'}">
+          <span class="alert-icon">${hasRefund ? '💰' : 'ℹ️'}</span>
+          <p class="alert-text">
+            <strong>Refund Status:</strong> ${refundLine}
+          </p>
+        </div>
+        
+        ${
+          cancellationFee && cancellationFee > 0
+            ? `
+        <p class="greeting">
+          A cancellation fee of $${cancellationFee.toFixed(2)} was applied according to the cancellation policy.
+        </p>
+        `
+            : ''
+        }
+        
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${bookingLink}" class="button">View Booking Details</a>
+        </div>
+        
+        <div class="divider"></div>
+        
+        <p class="greeting">
+          If you have any questions about this cancellation, please contact our support team.
+        </p>
+      </div>
+      
+      <div class="footer">
+        <p class="footer-text">This is an automated message, please do not reply to this email.</p>
+        <p class="footer-text">© ${new Date().getFullYear()} SeatWaves. All rights reserved.</p>
+      </div>
+    </div>
+  </body>
+  </html>
+    `.trim();
+}
+
+// ============================================
+// 9. BOOKING VERIFIED - BUYER
+// ============================================
+
+export function generateBookingVerifiedBuyerEmailText({
+  bookingId,
+  ticketTitle,
+}: BookingVerifiedBuyerEmailOptions): string {
+  const titleText = ticketTitle ? ` for "${ticketTitle}"` : '';
+  return `Your booking${titleText} has been verified successfully! Booking ID: ${bookingId}. Enjoy your experience!`;
+}
+
+export function generateBookingVerifiedBuyerEmailHTML({
+  bookingId,
+  ticketTitle,
+}: BookingVerifiedBuyerEmailOptions): string {
+  const titleText = ticketTitle ? ` for <strong>${ticketTitle}</strong>` : '';
+
+  return `
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Booking Verified</title>
+    <style>${getBaseEmailStyles()}</style>
+  </head>
+  <body>
+    <div class="email-container">
+      <div class="header">
+        <h1>✅ Booking Verified!</h1>
+      </div>
+      
+      <div class="content">
+        <p class="greeting">Hello,</p>
+        
+        <p class="greeting">
+          Great news! Your booking${titleText} has been successfully verified by the seller.
+        </p>
+        
+        <div class="success">
+          <span class="alert-icon">🎉</span>
+          <p class="alert-text">
+            <strong>Booking ID:</strong> ${bookingId}
+          </p>
+        </div>
+        
+        <p class="greeting">
+          Your booking is now complete. We hope you enjoy your experience!
+        </p>
+        
+        <div class="divider"></div>
+        
+        <p class="greeting">
+          Thank you for using SeatWaves. If you have any feedback or questions, feel free to reach out to our support team.
+        </p>
+      </div>
+      
+      <div class="footer">
+        <p class="footer-text">This is an automated message, please do not reply to this email.</p>
+        <p class="footer-text">© ${new Date().getFullYear()} SeatWaves. All rights reserved.</p>
+      </div>
+    </div>
+  </body>
+  </html>
+    `.trim();
+}
+
+// ============================================
+// 10. BOOKING VERIFIED - SELLER (PAYOUT)
+// ============================================
+
+export function generateBookingVerifiedSellerEmailText({
+  bookingId,
+  payoutAmount,
+  ticketTitle,
+}: BookingVerifiedSellerEmailOptions): string {
+  const titleText = ticketTitle ? ` for "${ticketTitle}"` : '';
+  const payoutText = payoutAmount
+    ? `A payout of $${payoutAmount.toFixed(2)} has been initiated to your account.`
+    : 'No payout amount to transfer for this booking.';
+
+  return `Booking${titleText} has been verified! Booking ID: ${bookingId}. ${payoutText}`;
+}
+
+export function generateBookingVerifiedSellerEmailHTML({
+  bookingId,
+  payoutAmount,
+  ticketTitle,
+}: BookingVerifiedSellerEmailOptions): string {
+  const titleText = ticketTitle ? ` for <strong>${ticketTitle}</strong>` : '';
+  const hasPayout = payoutAmount && payoutAmount > 0;
+  const payoutText = hasPayout
+    ? `A payout of <strong>$${payoutAmount.toFixed(2)}</strong> has been initiated to your account.`
+    : 'No payout amount to transfer for this booking.';
+
+  return `
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Booking Verified - Payout Initiated</title>
+    <style>${getBaseEmailStyles()}</style>
+  </head>
+  <body>
+    <div class="email-container">
+      <div class="header">
+        <h1>💰 Booking Verified</h1>
+      </div>
+      
+      <div class="content">
+        <p class="greeting">Hello,</p>
+        
+        <p class="greeting">
+          A booking${titleText} has been successfully verified and delivered.
+        </p>
+        
+        <div class="info">
+          <span class="alert-icon">📋</span>
+          <p class="alert-text">
+            <strong>Booking ID:</strong> ${bookingId}
+          </p>
+        </div>
+        
+        <div class="${hasPayout ? 'success' : 'info'}">
+          <span class="alert-icon">${hasPayout ? '💵' : 'ℹ️'}</span>
+          <p class="alert-text">
+            <strong>Payout Status:</strong> ${payoutText}
+          </p>
+        </div>
+        
+        ${
+          hasPayout
+            ? `
+        <p class="greeting">
+          The funds will be transferred to your connected account shortly. You can check your Stripe dashboard for more details.
+        </p>
+        `
+            : ''
+        }
+        
+        <div class="divider"></div>
+        
+        <p class="greeting">
+          Thank you for being a valued seller on SeatWaves. If you have any questions, please contact our support team.
         </p>
       </div>
       
