@@ -17,6 +17,16 @@ import { OtpType } from '@prisma/client';
 import {
   generateOTPEmailHTML,
   generateOTPEmailText,
+  generateTwoFactorEmailHTML,
+  generateTwoFactorEmailText,
+  generatePasswordResetEmailHTML,
+  generatePasswordResetEmailText,
+  generateWelcomeEmailHTML,
+  generateWelcomeEmailText,
+  generatePasswordChangedEmailHTML,
+  generatePasswordChangedEmailText,
+  generateAccountBlockedEmailHTML,
+  generateAccountBlockedEmailText,
 } from 'src/lib/email-template';
 
 @Injectable()
@@ -173,8 +183,8 @@ export class AuthService {
     await this.emailService.sendOTPEmail({
       to: user.email,
       subject,
-      text: `Your OTP is ${otpData.otp}. This OTP is valid for 10 minutes. Do not share this OTP with anyone.`,
-      html: `Your OTP is <b>${otpData.otp}</b>. This OTP is valid for 10 minutes. Do not share this OTP with anyone.`,
+      text: generateOTPEmailText({ otp: otpData.otp }),
+      html: generateOTPEmailHTML({ otp: otpData.otp }),
     });
 
     return { status: true, message: 'OTP sent successfully' };
@@ -246,8 +256,8 @@ export class AuthService {
     await this.emailService.sendOTPEmail({
       to: user.email,
       subject: 'Two Factor OTP',
-      text: `Your OTP is ${otpData.otp}. This OTP is valid for 10 minutes. Do not share this OTP with anyone.`,
-      html: `Your OTP is <b>${otpData.otp}</b>. This OTP is valid for 10 minutes. Do not share this OTP with anyone.`,
+      text: generateTwoFactorEmailText({ otp: otpData.otp }),
+      html: generateTwoFactorEmailHTML({ otp: otpData.otp }),
     });
 
     return { status: true, message: 'OTP sent successfully' };
@@ -321,8 +331,8 @@ export class AuthService {
       await this.emailService.sendOTPEmail({
         to: user.email,
         subject: 'Verification OTP',
-        text: `Your OTP for verification is ${otpData.otp}. This OTP is valid for 10 minutes. Do not share this OTP with anyone.`,
-        html: `Your OTP for verification is <b>${otpData.otp}</b>. This OTP is valid for 10 minutes. Do not share this OTP with anyone.`,
+        text: generateOTPEmailText({ otp: otpData.otp }),
+        html: generateOTPEmailHTML({ otp: otpData.otp }),
       });
     }
 
@@ -347,8 +357,8 @@ export class AuthService {
       await this.emailService.sendOTPEmail({
         to: user.email,
         subject: 'Two Factor OTP',
-        text: `Your OTP for verification is ${otpData.otp}. This OTP is valid for 10 minutes. Do not share this OTP with anyone.`,
-        html: `Your OTP for verification is <b>${otpData.otp}</b>. This OTP is valid for 10 minutes. Do not share this OTP with anyone.`,
+        text: generateTwoFactorEmailText({ otp: otpData.otp }),
+        html: generateTwoFactorEmailHTML({ otp: otpData.otp }),
       });
     }
 
@@ -462,8 +472,8 @@ export class AuthService {
       await this.emailService.sendOTPEmail({
         to: user.email,
         subject: 'Verification OTP',
-        text: `Your OTP for verification is ${otpData.otp}. This OTP is valid for 10 minutes. Do not share this OTP with anyone.`,
-        html: `Your OTP for verification is <b>${otpData.otp}</b>. This OTP is valid for 10 minutes. Do not share this OTP with anyone.`,
+        text: generateOTPEmailText({ otp: otpData.otp }),
+        html: generateOTPEmailHTML({ otp: otpData.otp }),
       });
 
       // create token userId email and otptype
@@ -504,8 +514,8 @@ export class AuthService {
       await this.emailService.sendOTPEmail({
         to: user.email,
         subject: 'Two Factor OTP',
-        text: `Your OTP for verification is ${otpData.otp}. This OTP is valid for 10 minutes. Do not share this OTP with anyone.`,
-        html: `Your OTP for verification is <b>${otpData.otp}</b>. This OTP is valid for 10 minutes. Do not share this OTP with anyone.`,
+        text: generateTwoFactorEmailText({ otp: otpData.otp }),
+        html: generateTwoFactorEmailHTML({ otp: otpData.otp }),
       });
 
       const token = await this.generateOtpToken(
@@ -872,8 +882,8 @@ export class AuthService {
     // TODO: Send this token via email securely
     this.emailService.sendEmailToUser(user.id, {
       subject: 'Password Reset OTP',
-      text: `Your OTP for password reset is ${otp}. This OTP is valid for 10 minutes. Do not share this OTP with anyone.`,
-      html: `Your OTP for password reset is <b>${otp}</b>. This OTP is valid for 10 minutes. Do not share this OTP with anyone.`,
+      text: generatePasswordResetEmailText({ otp }),
+      html: generatePasswordResetEmailHTML({ otp }),
     });
 
     return {
