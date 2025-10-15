@@ -129,6 +129,13 @@ export class AuthController {
     return this.authService.resendOtp(dto.email, dto.type);
   }
 
+  //resend-2fa
+  @HttpCode(HttpStatus.OK)
+  @Post('resend-2fa')
+  resend2fa(@Body() dto: ResendOtpDto) {
+    return this.authService.resend2fa(dto.email);
+  }
+
   //verify-email and reset-password
   @HttpCode(HttpStatus.OK)
   @Post('verify-email')

@@ -114,6 +114,7 @@ export class AuthService {
 
     return {
       status: true,
+      redirect: '/auth/verify-email',
       message:
         'User Registered Successfully. Please verify your email with the OTP sent.',
     };
@@ -172,6 +173,79 @@ export class AuthService {
     await this.emailService.sendOTPEmail({
       to: user.email,
       subject,
+      text: `Your OTP is ${otpData.otp}. This OTP is valid for 10 minutes. Do not share this OTP with anyone.`,
+      html: `Your OTP is <b>${otpData.otp}</b>. This OTP is valid for 10 minutes. Do not share this OTP with anyone.`,
+    });
+
+    return { status: true, message: 'OTP sent successfully' };
+  }
+
+  async resend2fa(email: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { email: email },
+    });
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    // Optional: block checks similar to forgotPassword
+    if (user.status === 'BLOCKED') {
+      if (user.blockedUntil && user.blockedUntil > new Date()) {
+        const remainingMs = user.blockedUntil.getTime() - new Date().getTime();
+        const remainingMin = Math.ceil(remainingMs / 60000);
+        throw new UnauthorizedException(
+          `This Account is blocked. Try again in ${remainingMin} minutes.`,
+        );
+      } else {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { status: 'ACTIVE', blockedUntil: null },
+        });
+      }
+    }
+
+    //check last otp of type two factor
+    const lastOtp = await this.prisma.userOtp.findFirst({
+      where: {
+        email: user.email,
+        type: 'TWO_FACTOR',
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    if (lastOtp) {
+      const now = new Date();
+      const isExpired = lastOtp.expiresAt && lastOtp.expiresAt < now;
+      if (!isExpired) {
+        throw new UnauthorizedException(
+          'Please wait for the current OTP to expire before requesting a new one.',
+        );
+      }
+    }
+
+    // Remove previous OTPs of same type
+    await this.prisma.userOtp.deleteMany({
+      where: { email: user.email },
+    });
+
+    // Generate and save new OTP
+    const otp = this.generateMixedOTP(6);
+    const otpData = await this.prisma.userOtp.create({
+      data: {
+        email: user.email,
+        otp,
+        type: 'TWO_FACTOR',
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes expiry
+      },
+    });
+
+    if (!otpData) throw new UnauthorizedException('Failed to generate OTP');
+
+    await this.emailService.sendOTPEmail({
+      to: user.email,
+      subject: 'Two Factor OTP',
       text: `Your OTP is ${otpData.otp}. This OTP is valid for 10 minutes. Do not share this OTP with anyone.`,
       html: `Your OTP is <b>${otpData.otp}</b>. This OTP is valid for 10 minutes. Do not share this OTP with anyone.`,
     });
@@ -346,17 +420,14 @@ export class AuthService {
       if (user.blockedUntil && user.blockedUntil > new Date()) {
         const remainingMs = user.blockedUntil.getTime() - new Date().getTime();
         const remainingMin = Math.ceil(remainingMs / 60000);
-        throw new ForbiddenException(
+        throw new UnauthorizedException(
           `This Account is blocked. Try again in ${remainingMin} minutes.`,
         );
       } else {
         // Time passed, unblock
         await this.prisma.user.update({
           where: { id: user.id },
-          data: {
-            status: 'ACTIVE',
-            blockedUntil: null,
-          },
+          data: { status: 'ACTIVE', blockedUntil: null },
         });
       }
     }
@@ -368,90 +439,90 @@ export class AuthService {
       throw new UnauthorizedException('Invalid password');
     }
 
-    // if (!user.isEmailVerified) {
-    //   //send verification email
-    //   // Generate OTP
+    if (!user.isEmailVerified) {
+      //send verification email
+      // Generate OTP
 
-    //   // Clear existing OTPs for this user
-    //   await this.prisma.userOtp.deleteMany({
-    //     where: { email: user.email },
-    //   });
+      // Clear existing OTPs for this user
+      await this.prisma.userOtp.deleteMany({
+        where: { email: user.email },
+      });
 
-    //   const otp = this.generateMixedOTP(6);
+      const otp = this.generateMixedOTP(6);
 
-    //   // Save OTP
-    //   const otpData = await this.prisma.userOtp.create({
-    //     data: {
-    //       email: user.email,
-    //       otp,
-    //       expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes expiry
-    //     },
-    //   });
+      // Save OTP
+      const otpData = await this.prisma.userOtp.create({
+        data: {
+          email: user.email,
+          otp,
+          expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes expiry
+        },
+      });
 
-    //   await this.emailService.sendOTPEmail({
-    //     to: user.email,
-    //     subject: 'Verification OTP',
-    //     text: `Your OTP for verification is ${otpData.otp}. This OTP is valid for 10 minutes. Do not share this OTP with anyone.`,
-    //     html: `Your OTP for verification is <b>${otpData.otp}</b>. This OTP is valid for 10 minutes. Do not share this OTP with anyone.`,
-    //   });
+      await this.emailService.sendOTPEmail({
+        to: user.email,
+        subject: 'Verification OTP',
+        text: `Your OTP for verification is ${otpData.otp}. This OTP is valid for 10 minutes. Do not share this OTP with anyone.`,
+        html: `Your OTP for verification is <b>${otpData.otp}</b>. This OTP is valid for 10 minutes. Do not share this OTP with anyone.`,
+      });
 
-    //   // create token userId email and otptype
-    //   const token = await this.generateOtpToken(
-    //     user.status,
-    //     user.email,
-    //     'VERIFY_EMAIL',
-    //   );
+      // create token userId email and otptype
+      const token = await this.generateOtpToken(
+        user.status,
+        user.email,
+        'VERIFY_EMAIL',
+      );
 
-    //   // Avoid server-side redirect to prevent CORS issues; let client navigate
-    //   return {
-    //     status: true,
-    //     message: 'Email verification required. OTP sent to your email.',
-    //     redirectUrl: `${process.env.APP_CLIENT_URL}/verify-email?token=${encodeURIComponent(
-    //       token,
-    //     )}&email=${encodeURIComponent(user.email)}`,
-    //   };
-    // }
+      // Avoid server-side redirect to prevent CORS issues; let client navigate
+      return {
+        status: true,
+        message: 'Email verification required. OTP sent to your email.',
+        redirectUrl: `${process.env.APP_CLIENT_URL}/verify-email?token=${encodeURIComponent(
+          token,
+        )}&email=${encodeURIComponent(user.email)}`,
+      };
+    }
 
-    // if (user.isTwoFactorEnabled) {
-    //   //send 2fa email
-    //   await this.prisma.userOtp.deleteMany({
-    //     where: { email: user.email, type: 'TWO_FACTOR' },
-    //   });
+    if (user.isTwoFactorEnabled) {
+      //send 2fa email
+      await this.prisma.userOtp.deleteMany({
+        where: { email: user.email, type: 'TWO_FACTOR' },
+      });
 
-    //   const otp = this.generateMixedOTP(6);
+      const otp = this.generateMixedOTP(6);
 
-    //   // Save OTP
-    //   const otpData = await this.prisma.userOtp.create({
-    //     data: {
-    //       email: user.email,
-    //       otp,
-    //       expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes expiry
-    //       type: 'TWO_FACTOR',
-    //     },
-    //   });
+      // Save OTP
+      const otpData = await this.prisma.userOtp.create({
+        data: {
+          email: user.email,
+          otp,
+          expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes expiry
+          type: 'TWO_FACTOR',
+        },
+      });
 
-    //   await this.emailService.sendOTPEmail({
-    //     to: user.email,
-    //     subject: 'Two Factor OTP',
-    //     text: `Your OTP for verification is ${otpData.otp}. This OTP is valid for 10 minutes. Do not share this OTP with anyone.`,
-    //     html: `Your OTP for verification is <b>${otpData.otp}</b>. This OTP is valid for 10 minutes. Do not share this OTP with anyone.`,
-    //   });
+      await this.emailService.sendOTPEmail({
+        to: user.email,
+        subject: 'Two Factor OTP',
+        text: `Your OTP for verification is ${otpData.otp}. This OTP is valid for 10 minutes. Do not share this OTP with anyone.`,
+        html: `Your OTP for verification is <b>${otpData.otp}</b>. This OTP is valid for 10 minutes. Do not share this OTP with anyone.`,
+      });
 
-    //   const token = await this.generateOtpToken(
-    //     user.status,
-    //     user.email,
-    //     'TWO_FACTOR',
-    //   );
+      const token = await this.generateOtpToken(
+        user.status,
+        user.email,
+        'TWO_FACTOR',
+      );
 
-    //   // Avoid server-side redirect; return JSON instruction for client navigation
-    //   return {
-    //     status: true,
-    //     message: 'Two-factor authentication required. OTP sent to your email.',
-    //     redirectUrl: `${process.env.APP_CLIENT_URL}/verify-otp?token=${encodeURIComponent(
-    //       token,
-    //     )}&email=${encodeURIComponent(user.email)}`,
-    //   };
-    // }
+      // Avoid server-side redirect; return JSON instruction for client navigation
+      return {
+        status: true,
+        message: 'Two-factor authentication required. OTP sent to your email.',
+        redirect: `${process.env.APP_CLIENT_URL}/auth/2fa?token=${encodeURIComponent(
+          token,
+        )}&email=${encodeURIComponent(user.email)}`,
+      };
+    }
 
     // Success
     await this.logLoginAttempt(user.id, req, 'SUCCESS');
