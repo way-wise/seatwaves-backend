@@ -352,6 +352,8 @@ export class BookingService {
           phone: true,
           email: true,
           deliveryType: true,
+          alertMessage: true,
+          note: true,
           createdAt: true,
           updatedAt: true,
           user: { select: { id: true, name: true, avatar: true, email: true } },

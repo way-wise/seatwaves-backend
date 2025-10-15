@@ -27,6 +27,9 @@ export class MessageService {
   private readonly logger = new Logger(MessageService.name);
 
   async initiateMessage(body: InitMessageDto, userId: string) {
+    if (!body.bookingId) {
+      throw new BadRequestException('Booking ID is required');
+    }
     const existBooking = await this.prisma.booking.findUnique({
       where: {
         id: body.bookingId,
@@ -38,24 +41,6 @@ export class MessageService {
 
     if (!existBooking) {
       throw new NotFoundException('Booking not found');
-    }
-
-    if (existBooking.ticket.sellerId === userId) {
-      throw new BadRequestException(
-        'You cannot initiate a message with yourself',
-      );
-    }
-    type MessageRoomWhereUniqueInputWithBookingId =
-      Prisma.MessageRoomWhereUniqueInput & {
-        senderId_receiverId_bookingId: {
-          senderId: string;
-          receiverId: string;
-          bookingId: string;
-        };
-      };
-
-    if (!body.bookingId) {
-      throw new BadRequestException('Booking ID is required');
     }
 
     const exists = await this.prisma.messageRoom.findUnique({
