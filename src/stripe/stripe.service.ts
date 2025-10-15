@@ -24,6 +24,7 @@ import { TransactionService } from '../transaction/transaction.service';
 import { CreatePaymentsIntentDto } from './stripe.controller';
 import { ActivityService } from 'src/activity/activity.service';
 import { Request } from 'express';
+import { EmailService } from 'src/email/email.service';
 
 export interface CreatePaymentIntentDto {
   experienceId: string;
@@ -82,6 +83,7 @@ export class StripeService {
     private prisma: PrismaService,
     private transactionService: TransactionService,
     private readonly notificationService: NotificationService,
+    private readonly emailService: EmailService,
     private readonly activityService: ActivityService,
   ) {
     const secretKey = this.configService.get<string>('STRIPE_SECRET_KEY');

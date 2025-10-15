@@ -160,7 +160,7 @@ export class BookingController {
 
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('booking.read')
-  @Get('/generate/code/:bookingId')
+  @Post('/generate/code/:bookingId')
   async generateBookingCode(@Param('bookingId') bookingId: string, @Req() req) {
     if (!req.user) {
       throw new UnauthorizedException('User not found');
@@ -170,7 +170,7 @@ export class BookingController {
 
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('booking.read')
-  @Get('/verify/:bookingId')
+  @Post('/verify/:bookingId')
   async verifyBookingCode(
     @Param('bookingId') bookingId: string,
     @Body() body: { otp: string },

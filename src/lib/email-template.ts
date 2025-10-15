@@ -54,6 +54,12 @@ interface BookingVerifiedSellerEmailOptions {
   ticketTitle?: string;
 }
 
+interface BookingConfirmedEmailOptions {
+  bookingId: string;
+  eventTitle?: string;
+  bookingLink?: string;
+}
+
 // ============================================
 // BASE EMAIL STYLES (Reusable)
 // ============================================
@@ -919,6 +925,90 @@ export function generateBookingVerifiedSellerEmailHTML({
         
         <p class="greeting">
           Thank you for being a valued seller on SeatWaves. If you have any questions, please contact our support team.
+        </p>
+      </div>
+      
+      <div class="footer">
+        <p class="footer-text">This is an automated message, please do not reply to this email.</p>
+        <p class="footer-text">© ${new Date().getFullYear()} SeatWaves. All rights reserved.</p>
+      </div>
+    </div>
+  </body>
+  </html>
+    `.trim();
+}
+
+// ============================================
+// 11. BOOKING CONFIRMED (Payment Success)
+// ============================================
+
+export function generateBookingConfirmedEmailText({
+  bookingId,
+  eventTitle,
+  bookingLink,
+}: BookingConfirmedEmailOptions): string {
+  const titleText = eventTitle ? ` for "${eventTitle}"` : '';
+  const linkText = bookingLink ? ` View details: ${bookingLink}` : '';
+  return `Great news! Your booking${titleText} has been confirmed. Booking ID: ${bookingId}.${linkText}`;
+}
+
+export function generateBookingConfirmedEmailHTML({
+  bookingId,
+  eventTitle,
+  bookingLink,
+}: BookingConfirmedEmailOptions): string {
+  const titleText = eventTitle ? ` for <strong>${eventTitle}</strong>` : '';
+
+  return `
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Booking Confirmed</title>
+    <style>${getBaseEmailStyles()}</style>
+  </head>
+  <body>
+    <div class="email-container">
+      <div class="header">
+        <h1>🎉 Booking Confirmed!</h1>
+      </div>
+      
+      <div class="content">
+        <p class="greeting">Hello,</p>
+        
+        <p class="greeting">
+          Great news! Your payment has been processed successfully and your booking${titleText} is now confirmed.
+        </p>
+        
+        <div class="success">
+          <span class="alert-icon">✅</span>
+          <p class="alert-text">
+            <strong>Booking ID:</strong> ${bookingId}
+          </p>
+        </div>
+        
+        <div class="info">
+          <span class="alert-icon">📋</span>
+          <p class="alert-text">
+            <strong>Next Steps:</strong> You will receive a verification code when it's time to use your booking. Show this code to the seller to complete your experience.
+          </p>
+        </div>
+        
+        ${
+          bookingLink
+            ? `
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${bookingLink}" class="button">View Booking Details</a>
+        </div>
+        `
+            : ''
+        }
+        
+        <div class="divider"></div>
+        
+        <p class="greeting">
+          We're excited for your upcoming experience! If you have any questions, feel free to contact our support team.
         </p>
       </div>
       

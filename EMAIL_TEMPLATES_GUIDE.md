@@ -4,6 +4,8 @@ This guide explains all available email templates in `src/lib/email-template.ts`
 
 ## Available Templates
 
+### Auth Templates
+
 ### 1. **Email Verification OTP**
 Used when users need to verify their email address.
 
@@ -139,6 +141,146 @@ await this.emailService.sendEmailToUser(user.id, {
 
 ---
 
+### Booking Templates
+
+### 7. **Booking Confirmed**
+Sent when payment is successful and booking is confirmed.
+
+**Functions:**
+- `generateBookingConfirmedEmailText({ bookingId, eventTitle?, bookingLink? })`
+- `generateBookingConfirmedEmailHTML({ bookingId, eventTitle?, bookingLink? })`
+
+**Usage Example:**
+```typescript
+await this.emailService.sendEmailToUser(userId, {
+  subject: 'Booking Confirmed',
+  text: generateBookingConfirmedEmailText({
+    bookingId: booking.id,
+    eventTitle: event.title,
+    bookingLink: `${APP_URL}/bookings/${booking.id}`,
+  }),
+  html: generateBookingConfirmedEmailHTML({
+    bookingId: booking.id,
+    eventTitle: event.title,
+    bookingLink: `${APP_URL}/bookings/${booking.id}`,
+  }),
+});
+```
+
+**Used in:**
+- Stripe webhook after successful payment (`webhook.service.ts`)
+
+---
+
+### 8. **Booking OTP**
+Sent when a booking verification code is generated.
+
+**Functions:**
+- `generateBookingOTPEmailText({ otp, bookingId, validityMinutes? })`
+- `generateBookingOTPEmailHTML({ otp, bookingId, validityMinutes? })`
+
+**Usage Example:**
+```typescript
+await this.emailService.sendOTPEmail({
+  to: user.email,
+  subject: 'Booking Verification Code',
+  text: generateBookingOTPEmailText({ otp: '123456', bookingId: 'abc123' }),
+  html: generateBookingOTPEmailHTML({ otp: '123456', bookingId: 'abc123' }),
+});
+```
+
+**Used in:**
+- Generate booking code (`booking.service.ts`)
+
+---
+
+### 9. **Booking Cancellation**
+Sent when a booking is cancelled.
+
+**Functions:**
+- `generateBookingCancellationEmailText({ bookingId, refundAmount, cancellationFee?, bookingLink })`
+- `generateBookingCancellationEmailHTML({ bookingId, refundAmount, cancellationFee?, bookingLink })`
+
+**Usage Example:**
+```typescript
+await this.emailService.sendEmailToUser(userId, {
+  subject: 'Booking Cancelled',
+  text: generateBookingCancellationEmailText({
+    bookingId: 'abc123',
+    refundAmount: 50.00,
+    cancellationFee: 5.00,
+    bookingLink: `${APP_URL}/bookings/abc123`,
+  }),
+  html: generateBookingCancellationEmailHTML({
+    bookingId: 'abc123',
+    refundAmount: 50.00,
+    cancellationFee: 5.00,
+    bookingLink: `${APP_URL}/bookings/abc123`,
+  }),
+});
+```
+
+**Used in:**
+- Cancel booking (`booking.service.ts`)
+
+---
+
+### 10. **Booking Verified - Buyer**
+Sent to buyer when seller verifies the booking.
+
+**Functions:**
+- `generateBookingVerifiedBuyerEmailText({ bookingId, ticketTitle? })`
+- `generateBookingVerifiedBuyerEmailHTML({ bookingId, ticketTitle? })`
+
+**Usage Example:**
+```typescript
+await this.emailService.sendEmailToUser(userId, {
+  subject: 'Booking Verified Successfully',
+  text: generateBookingVerifiedBuyerEmailText({
+    bookingId: 'abc123',
+    ticketTitle: 'Concert Ticket',
+  }),
+  html: generateBookingVerifiedBuyerEmailHTML({
+    bookingId: 'abc123',
+    ticketTitle: 'Concert Ticket',
+  }),
+});
+```
+
+**Used in:**
+- Verify booking code (`booking.service.ts`)
+
+---
+
+### 11. **Booking Verified - Seller**
+Sent to seller when booking is verified with payout information.
+
+**Functions:**
+- `generateBookingVerifiedSellerEmailText({ bookingId, payoutAmount?, ticketTitle? })`
+- `generateBookingVerifiedSellerEmailHTML({ bookingId, payoutAmount?, ticketTitle? })`
+
+**Usage Example:**
+```typescript
+await this.emailService.sendEmailToUser(sellerId, {
+  subject: 'Booking Verified - Payout Initiated',
+  text: generateBookingVerifiedSellerEmailText({
+    bookingId: 'abc123',
+    payoutAmount: 45.00,
+    ticketTitle: 'Concert Ticket',
+  }),
+  html: generateBookingVerifiedSellerEmailHTML({
+    bookingId: 'abc123',
+    payoutAmount: 45.00,
+    ticketTitle: 'Concert Ticket',
+  }),
+});
+```
+
+**Used in:**
+- Verify booking code (`booking.service.ts`)
+
+---
+
 ## Template Features
 
 All templates include:
@@ -168,12 +310,20 @@ generateOTPEmailHTML({ otp: '123456', validityMinutes: 15 })
 
 ## Implementation Checklist
 
+**Auth Templates:**
 - [x] Email Verification OTP - Implemented in auth service
 - [x] Two-Factor Authentication - Implemented in auth service
 - [x] Password Reset - Implemented in auth service
 - [ ] Welcome Email - Add to signUp after email verification
 - [ ] Password Changed - Add to changePassword and resetPassword
 - [ ] Account Blocked - Add to checkLoginAttempts
+
+**Booking Templates:**
+- [x] Booking Confirmed - Implemented in webhook service
+- [x] Booking OTP - Implemented in booking service
+- [x] Booking Cancellation - Implemented in booking service
+- [x] Booking Verified (Buyer) - Implemented in booking service
+- [x] Booking Verified (Seller) - Implemented in booking service
 
 ## Best Practices
 

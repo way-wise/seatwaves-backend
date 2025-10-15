@@ -487,7 +487,7 @@ export class AuthService {
       return {
         status: true,
         message: 'Email verification required. OTP sent to your email.',
-        redirectUrl: `${process.env.APP_CLIENT_URL}/verify-email?token=${encodeURIComponent(
+        redirect: `${process.env.APP_CLIENT_URL}/auth/verify-email?token=${encodeURIComponent(
           token,
         )}&email=${encodeURIComponent(user.email)}`,
       };

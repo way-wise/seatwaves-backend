@@ -16,6 +16,11 @@ import { QUEUES } from 'src/queues/queue.constants';
 import { NotificationService } from 'src/notification/notification.service';
 import { ActivityService } from 'src/activity/activity.service';
 import { PointsService } from 'src/points/points.service';
+import { EmailService } from 'src/email/email.service';
+import {
+  generateBookingConfirmedEmailText,
+  generateBookingConfirmedEmailHTML,
+} from 'src/lib/email-template';
 
 @Injectable()
 export class WebhookService {
@@ -23,6 +28,7 @@ export class WebhookService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationService: NotificationService,
+    private readonly emailService: EmailService,
     private readonly pointsService: PointsService,
     private readonly activityService: ActivityService,
     @InjectQueue(QUEUES.WEBHOOK) private readonly webhookQueue: Queue,
@@ -286,6 +292,13 @@ export class WebhookService {
           eventId: transaction.booking?.ticketId,
         }),
         ipAddress: 'Webhook',
+      });
+
+      //send email to booking user
+      this.emailService.sendEmailToUser(bookingUserId, {
+        subject: 'Booking Confirmed',
+        text: generateBookingConfirmedEmailText({ bookingId }),
+        html: generateBookingConfirmedEmailHTML({ bookingId }),
       });
       this.logger.log(
         `Updated transaction ${transaction.id} and booking ${transaction.booking?.id} to CONFIRMED`,

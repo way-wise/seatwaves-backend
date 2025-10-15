@@ -6,6 +6,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { TransactionModule } from '../transaction/transaction.module';
 import { NotificationModule } from '../notification/notification.module';
 import { ActivityModule } from 'src/activity/activity.module';
+import { EmailModule } from 'src/email/email.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { ActivityModule } from 'src/activity/activity.module';
     TransactionModule,
     NotificationModule,
     ActivityModule,
+    EmailModule,
   ],
   controllers: [StripeController],
   providers: [StripeService],

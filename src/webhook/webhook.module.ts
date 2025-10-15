@@ -8,6 +8,7 @@ import { WebhookProcessor } from './webhook.processor';
 import { NotificationModule } from 'src/notification/notification.module';
 import { ActivityModule } from 'src/activity/activity.module';
 import { PointsModule } from 'src/points/points.module';
+import { EmailModule } from 'src/email/email.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { PointsModule } from 'src/points/points.module';
     NotificationModule,
     ActivityModule,
     PointsModule,
+    EmailModule,
   ],
   controllers: [WebhookController],
   providers: [WebhookService, WebhookProcessor],
