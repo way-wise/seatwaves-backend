@@ -529,7 +529,7 @@ export class ReviewService {
 
     const reply = await this.prisma.review.update({
       where: { id: data.reviewId },
-      data: { replyed: data.reply, status: 'APPROVED', repliedAt: new Date() },
+      data: { replyed: data.reply, repliedAt: new Date() },
     });
 
     return {

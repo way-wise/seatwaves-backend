@@ -168,6 +168,7 @@ export class BookingService {
                 select: {
                   id: true,
                   title: true,
+                  image: true,
                 },
               },
               seller: {
