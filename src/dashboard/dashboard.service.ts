@@ -542,7 +542,23 @@ export class DashboardService {
           },
         },
         reviewReceived: {
-          where: { status: 'APPROVED' },
+          where: { status: { in: ['PENDING', 'APPROVED'] } },
+          select: {
+            id: true,
+            eventId: true,
+            rating: true,
+            title: true,
+            comment: true,
+            createdAt: true,
+
+            reviewer: {
+              select: {
+                id: true,
+                name: true,
+                avatar: true,
+              },
+            },
+          },
         },
       },
     });
