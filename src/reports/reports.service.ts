@@ -324,7 +324,7 @@ export class ReportsService {
       reportedUser: {
         select: { id: true, name: true, email: true, avatar: true },
       },
-      booking: { select: { id: true, seatId: true, userId: true } },
+      booking: { select: { id: true, ticketId: true, userId: true } },
       event: { select: { id: true, title: true, sellerId: true } },
       transaction: {
         select: { id: true, type: true, status: true, amount: true },
