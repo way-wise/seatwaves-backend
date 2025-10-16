@@ -203,6 +203,7 @@ export class UsersService {
         gender: true,
         governmentID: true,
         createdAt: true,
+        cover: true,
         _count: {
           select: { bookings: true, reviewsGiven: true },
         },
@@ -356,6 +357,32 @@ export class UsersService {
     return {
       status: true,
       message: 'Avatar updated successfully.',
+    };
+  }
+
+  async updateCover(id: string, file: Express.Multer.File, userId: string) {
+    if (!file) throw new NotFoundException('File not found.');
+    const exist = await this.prisma.user.findUnique({ where: { id } });
+
+    if (!exist) throw new NotFoundException('User not found.');
+    if (exist.id !== userId)
+      throw new ForbiddenException(
+        'You are not authorized to update this user.',
+      );
+
+    if (exist.cover) {
+      await this.uploadService.deleteFile(exist.cover);
+    }
+
+    const uploadResult = await this.uploadService.uploadFile(file, 'users');
+    await this.prisma.user.update({
+      where: { id },
+      data: { cover: uploadResult.Key },
+    });
+
+    return {
+      status: true,
+      message: 'Cover updated successfully.',
     };
   }
 

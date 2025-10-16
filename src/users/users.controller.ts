@@ -73,6 +73,17 @@ export class UsersController {
     return this.usersService.updateAvatar(id, file, req.user.userId);
   }
 
+  @Put(':id/cover')
+  @UseGuards(AuthGuard('jwt'))
+  @UseInterceptors(FileInterceptor('cover'))
+  updateCover(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req,
+  ) {
+    return this.usersService.updateCover(id, file, req.user.userId);
+  }
+
   @Patch('/toggle-two-factor')
   @UseGuards(AuthGuard('jwt'))
   toggleTwoFactor(@Req() req) {

@@ -513,6 +513,7 @@ export class DashboardService {
         isEmailVerified: true,
         tickets: {
           where: { event: { status: { in: ['ONGOING', 'COMPLETED'] } } },
+          orderBy: { isBooked: 'asc' },
           select: {
             id: true,
             isBooked: true,
