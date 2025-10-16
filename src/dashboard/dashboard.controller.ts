@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Permissions } from 'src/common/decorators/permissions.decorator';
 import { PermissionsGuard } from 'src/common/guards/permissions.guard';
@@ -20,6 +20,11 @@ export class DashboardController {
   @Get('/seller/earnings')
   async getHostEarnings(@Req() req, @Query() query: any) {
     return this.dashboardService.getHostEarnings(req.user.userId, query);
+  }
+
+  @Get('/seller/:id')
+  async getSellerPublicData(@Param('id') id: string) {
+    return this.dashboardService.getSellerPublicData(id);
   }
 
   @Permissions('seller.calendar.view')

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   endOfDay,
   endOfYear,
@@ -489,6 +489,69 @@ export class DashboardService {
       monthlyEarnings,
       duration,
       dateRange: { startDate, endDate },
+    };
+  }
+
+  async getSellerPublicData(id: string) {
+    const seller = await this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        bio: true,
+        avatar: true,
+        address: true,
+        gender: true,
+        about: true,
+        city: true,
+        country: true,
+        state: true,
+        status: true,
+        averageRating: true,
+        cover: true,
+        isSellerVerified: true,
+        isEmailVerified: true,
+        tickets: {
+          where: { event: { status: { in: ['ONGOING', 'COMPLETED'] } } },
+          select: {
+            id: true,
+            isBooked: true,
+            ticketId: true,
+            seatDetails: true,
+            thumbnail: true,
+            description: true,
+            createdAt: true,
+            discount: true,
+            discountType: true,
+            event: {
+              select: {
+                id: true,
+                title: true,
+                image: true,
+                startTime: true,
+                endTime: true,
+                venue: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            tickets: true,
+            reviewReceived: true,
+          },
+        },
+        reviewReceived: {
+          where: { status: 'APPROVED' },
+        },
+      },
+    });
+    if (!seller) {
+      throw new NotFoundException('Seller not found');
+    }
+    return {
+      status: true,
+      data: seller,
     };
   }
 
