@@ -348,12 +348,12 @@ export class ReviewService {
     return {
       status: true,
       data: reviews,
-      total,
-      page: page,
-      limit: limit,
-      totalPages: Math.ceil(total / parseInt(limit)),
-      next: skip + parseInt(limit) < total,
-      prev: skip > 0,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / parseInt(limit)),
+      },
     };
   }
 

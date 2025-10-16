@@ -67,7 +67,7 @@ export class ReviewController {
   }
 
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @Permissions('review.read', 'seller.reviews.view')
+  // @Permissions('review.read', 'seller.reviews.view')
   @Get('/seller')
   @UsePipes(new ZodQueryValidationPipe(reviewQueryByHostSchema))
   findAllByHost(@Req() req, @Query() query: ReviewQueryByHost) {
