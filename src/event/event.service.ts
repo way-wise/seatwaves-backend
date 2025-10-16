@@ -289,9 +289,9 @@ export class EventService {
       throw new NotAcceptableException('Seller not found');
     }
 
-    // if (!seller.stripeAccountId) {
-    //   throw new NotAcceptableException('Seller not onboarding complete');
-    // }
+    if (!seller.stripeAccountId) {
+      throw new NotAcceptableException('Seller not onboarding complete');
+    }
 
     //check event already exists
     const existingEvent = await this.prisma.event.findUnique({
@@ -328,6 +328,8 @@ export class EventService {
       };
     }
 
+    console.log('Creating new event', parsedData.data);
+
     try {
       return await this.prisma.$transaction(async (tx) => {
         const newEvent = await tx.event.create({
@@ -340,6 +342,7 @@ export class EventService {
             endTime: parsedData.data.endTime,
             duration: parsedData.data.duration,
             sellerId: sellerId,
+            image: parsedData.data.image,
             metadata: parsedData.data.metadata,
             categoryId: parsedData.data.categoryId,
             city: parsedData.data.city,

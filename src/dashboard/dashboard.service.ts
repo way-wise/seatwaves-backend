@@ -526,6 +526,7 @@ export class DashboardService {
             event: {
               select: {
                 id: true,
+                eventId: true,
                 title: true,
                 image: true,
                 startTime: true,
