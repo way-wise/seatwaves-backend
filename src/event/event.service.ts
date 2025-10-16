@@ -127,6 +127,62 @@ export class EventService {
     };
   }
 
+  async getEventsListing(query: any) {
+    const parsedQuery = queryEventSchema.parse(query);
+
+    const {
+      page = '1',
+      limit = '10',
+      cursor,
+      search,
+      sortBy = 'price',
+      sortOrder,
+    } = parsedQuery;
+    const pageInt = parseInt(page, 10);
+    const limitInt = parseInt(limit, 10);
+    const offset = (pageInt - 1) * limitInt;
+
+    const where: any = {
+      status: 'ONGOING',
+    };
+
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+        { venue: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [events, total] = await this.prisma.$transaction([
+      this.prisma.event.findMany({
+        where,
+        orderBy: { [sortBy]: sortOrder },
+        skip: offset,
+        take: limitInt,
+        cursor: cursor ? { id: cursor } : undefined,
+        include: {
+          seller: { select: { id: true, name: true } },
+          _count: { select: { tickets: true, reviews: true } },
+        },
+      }),
+      this.prisma.event.count({ where }),
+    ]);
+
+    const nextCursor =
+      events.length === limitInt ? events[events.length - 1].id : null;
+
+    return {
+      status: true,
+      data: events,
+      meta: {
+        total,
+        page: pageInt,
+        limit: limitInt,
+        nextCursor,
+      },
+    };
+  }
   //get single event
   async getEvent(id: string) {
     const event = await this.prisma.event.findUnique({

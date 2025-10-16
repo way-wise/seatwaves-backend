@@ -24,6 +24,12 @@ export class EventController {
     return this.eventService.getAllEventsPublic(query);
   }
 
+  //events listing for events page
+  @Get('/listing/all')
+  getEventsListing(@Query() query) {
+    return this.eventService.getEventsListing(query);
+  }
+
   //get Signle Event
   @Get('/:id')
   getEvent(@Param('id') id: string) {

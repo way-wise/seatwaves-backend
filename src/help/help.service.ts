@@ -12,6 +12,7 @@ import {
   PaginatedHelpFaqResponse,
 } from './dto/query.dto';
 import { Prisma } from '@prisma/client';
+import { faqQuerySchema } from './dto/faq.query.dto';
 
 @Injectable()
 export class HelpService {
@@ -20,28 +21,15 @@ export class HelpService {
   /**
    * Find all help FAQs with advanced filtering, search, and cursor pagination
    */
-  async findAll(query: HelpQueryDto) {
-    const parseQuery = helpQuerySchema.parse(query);
-    const {
-      cursor,
-      limit = '20',
-      search,
-      type,
-      status,
-      blogId,
-      createdAfter,
-      createdBefore,
-      updatedAfter,
-      updatedBefore,
-      sortBy,
-      sortOrder,
-      includeDeleted,
-    } = parseQuery;
+  async findAll(query: any) {
+    const parseQuery = faqQuerySchema.parse(query);
+    const { page = '1', limit = '20', search, type } = parseQuery;
 
     // Build where clause
     const where: Prisma.HelpFaqWhereInput = {
       // Soft delete filter
-      deletedAt: includeDeleted ? undefined : null,
+      deletedAt: null,
+      status: 'PUBLISHED',
     };
 
     // Search functionality
@@ -67,85 +55,45 @@ export class HelpService {
       where.type = type;
     }
 
-    // Status filter
-    if (status) {
-      where.status = status;
-    }
-
-    // Blog ID filter
-    if (blogId) {
-      where.blogId = blogId;
-    }
-
-    // Date range filters
-    if (createdAfter || createdBefore) {
-      where.createdAt = {};
-      if (createdAfter) {
-        where.createdAt.gte = new Date(createdAfter);
-      }
-      if (createdBefore) {
-        where.createdAt.lte = new Date(createdBefore);
-      }
-    }
-
-    if (updatedAfter || updatedBefore) {
-      where.updatedAt = {};
-      if (updatedAfter) {
-        where.updatedAt.gte = new Date(updatedAfter);
-      }
-      if (updatedBefore) {
-        where.updatedAt.lte = new Date(updatedBefore);
-      }
-    }
-
-    // Build orderBy
-    const orderBy: Prisma.HelpFaqOrderByWithRelationInput = {
-      [sortBy]: sortOrder,
-    };
-
-    // Cursor pagination setup
-    const take = Number(limit) + 1; // Get one extra to check if there's a next page
-    const cursorObj = cursor ? { id: cursor } : undefined;
+    const limitNum = Number(limit);
+    const pageNum = Math.max(1, Number(page));
+    const take = limitNum + 1; // Fetch one extra to check for next page
+    const skip = (pageNum - 1) * limitNum;
 
     try {
       // Execute query
-      const results = await this.prisma.helpFaq.findMany({
-        where,
-        orderBy,
-        take,
-        cursor: cursorObj,
-        skip: cursor ? 1 : 0, // Skip the cursor item itself
-        include: {
-          blog: {
-            select: {
-              id: true,
-              title: true,
-              slug: true,
+
+      const [data, total] = await Promise.all([
+        this.prisma.helpFaq.findMany({
+          where,
+          take,
+          skip,
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            question: true,
+            answer: true,
+            type: true,
+            createdAt: true,
+            blog: {
+              select: {
+                id: true,
+                title: true,
+                slug: true,
+              },
             },
           },
-        },
-      });
-
-      // Check if there are more results
-      const hasNext = results.length > Number(limit);
-      const data = hasNext ? results.slice(0, -1) : results;
-
-      // Get previous cursor (first item's ID)
-      const hasPrev = !!cursor;
-      const nextCursor = hasNext ? data[data.length - 1]?.id : undefined;
-      const prevCursor = hasPrev ? data[0]?.id : undefined;
-
-      // Get total count for better UX (optional, can be expensive)
-      const totalCount = await this.prisma.helpFaq.count({ where });
+        }),
+        this.prisma.helpFaq.count({ where }),
+      ]);
 
       return {
         data,
-        pagination: {
-          hasNext,
-          hasPrev,
-          nextCursor,
-          prevCursor,
-          totalCount,
+        meta: {
+          total,
+          page: pageNum,
+          limit: limitNum,
+          totalPages: Math.ceil(total / limitNum),
         },
       };
     } catch (error) {

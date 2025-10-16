@@ -524,7 +524,8 @@ export class DashboardService {
             createdAt: true,
             price: true,
             note: true,
-
+            ticketType: true,
+            metadata: true,
             discount: true,
             discountType: true,
             event: {
