@@ -95,11 +95,14 @@ export class BookingController {
     return await this.bookingService.cancelByGuest(id, req.user.userId);
   }
 
-  // ✅ Host - Get bookings
+  // ✅ Seller - Get bookings
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('booking.read')
   @Get()
   async findAll(@Query() query: any, @Req() req) {
+    if (!req.user) {
+      throw new UnauthorizedException('User not found');
+    }
     return await this.bookingService.findByHost(req.user.userId, query);
   }
 

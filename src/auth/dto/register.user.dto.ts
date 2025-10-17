@@ -2,8 +2,8 @@ import { AuthProvider } from '@prisma/client';
 import { z } from 'zod';
 
 enum Role {
-  GUEST = 'GUEST',
-  HOST = 'HOST',
+  USER = 'USER',
+  SELLER = 'SELLER',
 }
 
 export const CreateUserSchema = z.object({
