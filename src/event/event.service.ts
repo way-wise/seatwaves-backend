@@ -608,7 +608,7 @@ export class EventService {
     }
 
     if (ticket.isBooked) {
-      throw new NotAcceptableException('ticket is booked');
+      throw new NotAcceptableException('ticket is already sold ');
     }
 
     if (ticket.sellerId !== sellerId) {
@@ -626,6 +626,34 @@ export class EventService {
       status: true,
       message: 'ticket updated successfully',
       ticketId: updatedticket.id,
+    };
+  }
+
+  async deleteTicket(ticketId: string, sellerId: string) {
+    const ticket = await this.prisma.ticket.findUnique({
+      where: { id: ticketId },
+    });
+
+    if (!ticket) {
+      throw new NotAcceptableException('ticket not found');
+    }
+
+    if (ticket.isBooked) {
+      throw new NotAcceptableException('ticket is booked');
+    }
+
+    if (ticket.sellerId !== sellerId) {
+      throw new NotAcceptableException('ticket not belongs to you');
+    }
+
+    const deletedticket = await this.prisma.ticket.delete({
+      where: { id: ticketId },
+    });
+
+    return {
+      status: true,
+      message: 'ticket deleted successfully',
+      ticketId: deletedticket.id,
     };
   }
 

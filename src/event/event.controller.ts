@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
@@ -90,17 +91,25 @@ export class EventController {
   createEventsBulk(@Body() body) {
     return this.eventService.createEventsBulk(body);
   }
-  //add seats to event\
+  //add ticket to event\
   @UseGuards(AuthGuard('jwt'))
-  @Post('/:id/seats')
-  addSeats(@Param('id') id: string, @Body() body: any, @Req() req) {
+  @Post('/:id/tickets')
+  addTicket(@Param('id') id: string, @Body() body: any, @Req() req) {
     return this.eventService.addticketToEvent(id, body, req.user.userId);
   }
 
   @UseGuards(AuthGuard('jwt'))
-  @Put('/seats/:id')
+  @Put('/tickets/:id')
   @Permissions('update:event')
-  updateSeat(@Param('id') id: string, @Body() body: any, @Req() req) {
+  updateTicket(@Param('id') id: string, @Body() body: any, @Req() req) {
     return this.eventService.updateticket(id, body, req.user.userId);
+  }
+
+  //delete ticket
+  @UseGuards(AuthGuard('jwt'))
+  @Delete('/tickets/:id')
+  @Permissions('delete:event')
+  deleteTicket(@Param('id') id: string, @Req() req) {
+    return this.eventService.deleteTicket(id, req.user.userId);
   }
 }
