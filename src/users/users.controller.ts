@@ -103,9 +103,9 @@ export class UsersController {
     return this.usersService.deleteUser(id, body);
   }
 
-  //HOST ENDPOINTS
+  //Seller ENDPOINTS
 
-  //HOST Verification details
+  //Seller Verification details
   @UseGuards(AuthGuard('jwt'))
   @Post('/profile/:id/business-verify')
   @UseInterceptors(FilesInterceptor('documents', 5))

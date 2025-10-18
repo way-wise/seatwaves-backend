@@ -417,7 +417,7 @@ export class UsersService {
     return { status: true, message: 'All users deleted successfully.' };
   }
 
-  //HOST Verification
+  //Seller Verification
   async verifyHost(userId: string, data, files: Express.Multer.File[]) {
     const parseData = businessInfoSchema.safeParse(data);
 
@@ -440,7 +440,7 @@ export class UsersService {
 
     if (existingInfo) {
       throw new BadRequestException(
-        'You have already applied for host verification.',
+        'You have already applied for seller verification.',
       );
     }
 
@@ -464,20 +464,20 @@ export class UsersService {
       },
     });
 
-    this.logger.log(`User ${userId} applied for host verification`);
+    this.logger.log(`User ${userId} applied for seller verification`);
     //notification send to user
     this.notificationService.sendNotification(userId, {
-      title: 'Host Verification',
+      title: 'Seller Verification',
       message:
-        'Your host verification request has been submitted successfully.',
+        'Your seller verification request has been submitted successfully.',
       type: 'NOTIFY',
     });
 
     //send email notification to user
     this.emailService.sendEmail(
       user.email,
-      'Host Verification',
-      'Your host verification request has been submitted successfully.',
+      'Seller Verification',
+      'Your seller verification request has been submitted successfully.',
     );
 
     return {
@@ -536,9 +536,9 @@ export class UsersService {
     });
 
     this.notificationService.sendNotification(id, {
-      title: 'Host Verification',
+      title: 'Seller Verification',
       message:
-        'Your host verification request has been re-submitted successfully.',
+        'Your seller verification request has been re-submitted successfully.',
       type: 'NOTIFY',
     });
 
