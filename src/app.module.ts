@@ -30,7 +30,6 @@ import { TasksModule } from './tasks/tasks.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { HelpModule } from './help/help.module';
 import { FeedbackModule } from './feedback/feedback.module';
-import { AmenityModule } from './amenity/amenity.module';
 import { WebhookModule } from './webhook/webhook.module';
 import { ReportsModule } from './reports/reports.module';
 import { HealthModule } from './health/health.module';
@@ -88,7 +87,6 @@ import { HealthModule } from './health/health.module';
     // CategoryModule,
     // WishlistModule,
     // EventModule,
-    AmenityModule,
     // BlogModule,
     StripeModule,
     ReportsModule,
