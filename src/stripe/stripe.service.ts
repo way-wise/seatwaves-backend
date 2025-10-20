@@ -495,11 +495,24 @@ export class StripeService {
         },
       });
 
-      // 3.1) Reserve tickets and create booking + transaction atomically
-      await this.prisma.$transaction(async (tx) => {
-        // Re-read event inside the transaction to re-validate availability
+      // 3.1) Reserve tickets, create booking + transaction atomically with activity log
+      const bookingResult = await this.prisma.$transaction(async (tx) => {
+        // Re-read ticket inside the transaction to re-validate availability
+        const ticketCheck = await tx.ticket.findUnique({
+          where: { id: data.ticketId },
+          select: { isBooked: true, id: true },
+        });
 
-        await tx.booking.create({
+        if (!ticketCheck) {
+          throw new NotFoundException('Ticket no longer exists');
+        }
+
+        if (ticketCheck.isBooked) {
+          throw new BadRequestException('Ticket already booked by another user');
+        }
+
+        // Create booking with nested transaction
+        const booking = await tx.booking.create({
           data: {
             userId: userId,
             status: BookingStatus.PENDING,
@@ -532,45 +545,41 @@ export class StripeService {
                 metadata: {
                   reservedAt: new Date().toISOString(),
                   reservedCount: 1,
+                  deliveryType: data.deliveryType,
                 },
               },
             },
           },
         });
+
+        // Mark ticket as booked
         await tx.ticket.update({
           where: { id: data.ticketId },
           data: { isBooked: true },
         });
-      });
 
-      // 4) Create transaction record outside the transaction
-      // const transaction = await this.transactionService.createTransaction({
-      //   type: TransactionType.BOOKING_PAYMENT,
-      //   amount: ctx.finalAmount,
-      //   currency: Currency.USD,
-      //   provider: PaymentProvider.STRIPE_CONNECT,
-      //   payerId: userId,
-      //   payeeId: ctx.host.id,
-      //   experienceId: ctx.event.experienceId,
-      //   couponId: data.couponId,
-      //   stripePaymentIntent: session.id,
-      //   stripeAccountId: ctx.host.stripeAccountId as string,
-      //   platformFee: ctx.platformFee,
-      //   hostAmount: ctx.finalAmount - ctx.platformFee,
-      //   description: `Payment for ${ctx.event.experience.name}`,
-      //   externalTxnId: session.id,
-      // });
+        // Log activity within transaction
+        await tx.activityLog.create({
+          data: {
+            userId,
+            type: 'BOOKING',
+            action: 'BOOKING_CHECKOUT_STARTED',
+            metadata: JSON.stringify({
+              bookingId: booking.id,
+              ticketId: ctx.ticket.id,
+              eventId: ctx.ticket.event.id,
+              amount: ctx.finalAmount,
+              sessionId: session.id,
+            }),
+            ipAddress: req.ip || 'Unknown',
+          },
+        });
 
-      this.activityService.log({
-        userId,
-        type: 'BOOKING',
-        action: 'BOOKING_CHECKOUT_STARTED',
-        metadata: JSON.stringify(ctx),
-        ipAddress: req.ip ? req.ip : 'Unknown',
+        return booking;
       });
 
       this.logger.log(
-        `Created Checkout Session ${session.id} for event ${ctx.ticket.event.id} and user ${userId}`,
+        `Created Checkout Session ${session.id} for booking ${bookingResult.id}, event ${ctx.ticket.event.id}, user ${userId}`,
       );
 
       return {
