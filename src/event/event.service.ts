@@ -384,7 +384,7 @@ export class EventService {
       };
     }
 
-    console.log('Creating new event', parsedData.data);
+    this.logger.log(`Creating new event: ${parsedData.data.title}`);
 
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -457,7 +457,7 @@ export class EventService {
       throw new NotAcceptableException('Expected array of events');
     }
 
-    console.log(eventsInput);
+    this.logger.log(`Processing bulk upload of ${eventsInput.length} events`);
 
     const EventArraySchema = z.array(createEventScehema);
     // const parsedArray = EventArraySchema.safeParse(eventsInput);

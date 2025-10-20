@@ -1,33 +1,26 @@
 import {
-  ForbiddenException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { OtpType } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { Request, Response } from 'express';
+import { OAuth2Client } from 'google-auth-library';
+import { EmailService } from 'src/email/email.service';
+import {
+  generateOTPEmailHTML,
+  generateOTPEmailText,
+  generatePasswordResetEmailHTML,
+  generatePasswordResetEmailText,
+  generateTwoFactorEmailHTML,
+  generateTwoFactorEmailText,
+} from 'src/lib/email-template';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UserLoginDto } from './dto/login.user.dto';
 import { ChangePasswordDto } from './dto/password.user.dto';
 import { CreateUserDto } from './dto/register.user.dto';
-import { OAuth2Client } from 'google-auth-library';
-import { EmailService } from 'src/email/email.service';
-import { OtpType } from '@prisma/client';
-import {
-  generateOTPEmailHTML,
-  generateOTPEmailText,
-  generateTwoFactorEmailHTML,
-  generateTwoFactorEmailText,
-  generatePasswordResetEmailHTML,
-  generatePasswordResetEmailText,
-  generateWelcomeEmailHTML,
-  generateWelcomeEmailText,
-  generatePasswordChangedEmailHTML,
-  generatePasswordChangedEmailText,
-  generateAccountBlockedEmailHTML,
-  generateAccountBlockedEmailText,
-} from 'src/lib/email-template';
 
 @Injectable()
 export class AuthService {
@@ -863,8 +856,6 @@ export class AuthService {
       );
     }
 
-    // TODO: Send this token via email securely
-
     const otp = this.generateMixedOTP(6);
 
     await this.prisma.userOtp.deleteMany({ where: { email: user.email } });
@@ -879,7 +870,6 @@ export class AuthService {
 
     if (!otpData) throw new UnauthorizedException('Failed to generate OTP');
 
-    // TODO: Send this token via email securely
     this.emailService.sendEmailToUser(user.id, {
       subject: 'Password Reset OTP',
       text: generatePasswordResetEmailText({ otp }),

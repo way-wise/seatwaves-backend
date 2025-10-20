@@ -200,8 +200,6 @@ export class StripeService {
 
       this.logger.log(`Created onboarding link for host ${userId}`);
 
-      console.log('accountLink', accountLink);
-
       return {
         accountId,
         onboardingUrl: accountLink.url,

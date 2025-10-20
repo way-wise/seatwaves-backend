@@ -153,7 +153,6 @@ export class MessageService {
             roomId: roomId,
           },
         });
-        console.log(uploadResult);
         return newMessage;
       }),
     );
@@ -361,7 +360,6 @@ export class MessageService {
 
     if (exist.type === 'IMAGE' && exist.attachment) {
       await this.uploadService.deleteFile(exist.attachment);
-      console.log('Attachment deleted');
     }
 
     const deletedMessage = await this.prisma.message.delete({

@@ -114,7 +114,6 @@ export class UsersController {
     @Body() body: any,
     @Param('id') id: string,
   ) {
-    console.log('Params', id);
     return this.usersService.verifyHost(id, body, files || []);
   }
 

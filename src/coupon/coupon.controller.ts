@@ -12,5 +12,3 @@
  * 
  * Last modified: 2025-10-20
  */
-
-// TODO: Complete coupon implementation or remove this module entirely

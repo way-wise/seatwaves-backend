@@ -1,4 +1,5 @@
 import { JwtService } from '@nestjs/jwt';
+import { Logger } from '@nestjs/common';
 import {
   WebSocketGateway,
   WebSocketServer,
@@ -15,8 +16,11 @@ import { NOTIFICATION_CHANNEL, redisSub } from 'src/config/redis.config';
   },
 })
 export class NotificationGateway implements OnGatewayConnection, OnGatewayInit {
+  private readonly logger = new Logger(NotificationGateway.name);
+  
   @WebSocketServer()
   server: Server;
+  
   constructor(private readonly jwtService: JwtService) {}
 
   handleConnection(client: Socket) {
@@ -60,18 +64,24 @@ export class NotificationGateway implements OnGatewayConnection, OnGatewayInit {
   }
 
   async afterInit() {
-    console.log('✅ WebSocket Server is ready');
-    console.log('🚨 Subscribing to Redis PubSub');
+    this.logger.log('WebSocket Server initialized and ready');
+    this.logger.log('Subscribing to Redis PubSub channel');
 
     redisSub.subscribe(NOTIFICATION_CHANNEL, (err) => {
-      if (err) console.error('Redis subscription error:', err);
+      if (err) {
+        this.logger.error(`Redis subscription error: ${err.message}`, err.stack);
+      }
     });
 
     redisSub.on('message', (channel, message) => {
       if (channel === NOTIFICATION_CHANNEL) {
-        const data = JSON.parse(message);
-        console.log('📡 Sending to user:', data.userId);
-        this.server.to(data.userId).emit('notification', data);
+        try {
+          const data = JSON.parse(message);
+          this.logger.debug(`Broadcasting notification to user: ${data.userId}`);
+          this.server.to(data.userId).emit('notification', data);
+        } catch (error) {
+          this.logger.error(`Failed to parse notification message: ${error.message}`);
+        }
       }
     });
   }

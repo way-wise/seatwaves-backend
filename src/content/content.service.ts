@@ -411,7 +411,6 @@ export class ContentService {
       orderBy: { updatedAt: 'desc' },
     });
     if (!data) throw new NotFoundException('Active home page not found');
-    console.log('Hero Section', data);
     return { status: true, data };
   }
 
@@ -456,7 +455,6 @@ export class ContentService {
 
   //public testimonial
   async getTestimonials() {
-    console.log('getTestimonials');
     const data = await this.prisma.testimonial.findMany({
       where: { isActive: true },
       select: {

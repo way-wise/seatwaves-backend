@@ -93,9 +93,7 @@ export class UploadService {
   public localView(key: string, res: any) {
     const filePath = path.join(__dirname, '../../', key);
 
-    console.log('filePath', filePath);
     if (fs.existsSync(filePath)) {
-      // mirror CDN caching headers for local files
       res.set('Cache-Control', 'public, max-age=31536000, immutable');
       return res.sendFile(filePath);
     }
