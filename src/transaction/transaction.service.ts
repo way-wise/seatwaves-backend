@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -65,13 +66,15 @@ export interface TransactionAnalytics {
 
 @Injectable()
 export class TransactionService {
+  private readonly logger = new Logger(TransactionService.name);
+  
   constructor(private prisma: PrismaService) {}
 
   // ============= CORE TRANSACTION OPERATIONS =============
 
   async createTransaction(data: CreateTransactionDto) {
     return this.prisma.$transaction(async (tx) => {
-      console.log('createTransaction', data);
+      this.logger.log(`Creating transaction: ${data.type} from ${data.payerId} to ${data.payeeId}`);
       // Validate relationships exist
       const payer = await tx.user.findUnique({
         where: { id: data.payerId },

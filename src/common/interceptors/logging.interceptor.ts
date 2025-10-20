@@ -6,8 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
-import { tap, catchError } from 'rxjs/operators';
-import { throwError } from 'rxjs';
+import { tap } from 'rxjs/operators';
 
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
@@ -15,37 +14,86 @@ export class LoggingInterceptor implements NestInterceptor {
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const request = context.switchToHttp().getRequest();
-    const { method, url, body, user } = request;
-    const userAgent = request.get('User-Agent') || '';
-    const ip = request.ip;
+    const response = context.switchToHttp().getResponse();
+    const { method, url, body, params, query, ip } = request;
+    const correlationId = request.correlationId || 'N/A';
+    const userAgent = request.get('user-agent') || '';
+    const startTime = Date.now();
 
-    const now = Date.now();
-    
-    this.logger.log(
-      `${method} ${url} - User: ${user?.id || 'Anonymous'} - IP: ${ip} - UA: ${userAgent}`,
-    );
+    // Log request details (mask sensitive data)
+    const maskedBody = this.maskSensitiveData(body);
+
+    this.logger.log({
+      message: 'Incoming request',
+      correlationId,
+      method,
+      url,
+      ip,
+      userAgent,
+      body: maskedBody,
+      params,
+      query,
+    });
 
     return next.handle().pipe(
-      tap(() => {
-        const response = context.switchToHttp().getResponse();
-        const { statusCode } = response;
-        const contentLength = response.get('content-length');
+      tap({
+        next: (data) => {
+          const { statusCode } = response;
+          const responseTime = Date.now() - startTime;
 
-        this.logger.log(
-          `${method} ${url} ${statusCode} ${contentLength} - ${Date.now() - now}ms`,
-        );
-      }),
-      catchError((error) => {
-        const response = context.switchToHttp().getResponse();
-        const { statusCode } = response;
+          this.logger.log({
+            message: 'Request completed',
+            correlationId,
+            method,
+            url,
+            statusCode,
+            responseTime: `${responseTime}ms`,
+          });
+        },
+        error: (error) => {
+          const responseTime = Date.now() - startTime;
 
-        this.logger.error(
-          `${method} ${url} ${statusCode} - ${Date.now() - now}ms - Error: ${error.message}`,
-          error.stack,
-        );
-
-        return throwError(() => error);
+          this.logger.error({
+            message: 'Request failed',
+            correlationId,
+            method,
+            url,
+            error: error.message,
+            stack:
+              process.env.NODE_ENV === 'development' ? error.stack : undefined,
+            responseTime: `${responseTime}ms`,
+          });
+        },
       }),
     );
+  }
+
+  private maskSensitiveData(data: any): any {
+    if (!data || typeof data !== 'object') return data;
+
+    const sensitiveFields = [
+      'password',
+      'token',
+      'secret',
+      'apikey',
+      'accesstoken',
+      'refreshtoken',
+      'creditcard',
+      'cvv',
+      'ssn',
+    ];
+
+    const masked = { ...data };
+    for (const key of Object.keys(masked)) {
+      if (
+        sensitiveFields.some((field) => key.toLowerCase().includes(field))
+      ) {
+        masked[key] = '***MASKED***';
+      } else if (typeof masked[key] === 'object') {
+        masked[key] = this.maskSensitiveData(masked[key]);
+      }
+    }
+
+    return masked;
   }
 }

@@ -296,8 +296,6 @@ export class StripeController {
         req.user.userId,
       );
 
-      console.log('result', result);
-
       return {
         success: true,
         message: 'Onboarding link created successfully',

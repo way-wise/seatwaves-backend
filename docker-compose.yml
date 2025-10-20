@@ -8,13 +8,13 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: postgres
+      POSTGRES_DB: seatwaves
     ports:
       - '5432:5432'
     volumes:
       - postgres:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD', 'pg_isready', '-U', 'auth']
+      test: ['CMD', 'pg_isready', '-U', 'postgres']
       interval: 30s
       timeout: 30s
       retries: 3
@@ -31,7 +31,7 @@ services:
       - '5051:443'
 
   redis-stack:
-    image: redis/redis-stack:latest
+    image: redis/redis-stack:7.4.0-v1
     ports:
       - '6379:6379'
       - '8002:8001'

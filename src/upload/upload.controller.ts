@@ -30,7 +30,6 @@ export class UploadController {
       return res.json(url);
     }
 
-    console.log('key', key);
     return await this.uploadService.localView(key, res);
   }
 

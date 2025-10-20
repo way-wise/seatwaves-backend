@@ -4,6 +4,9 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { ConfigModule } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
+import { validateEnv } from './config/env.config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
@@ -27,9 +30,9 @@ import { TasksModule } from './tasks/tasks.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { HelpModule } from './help/help.module';
 import { FeedbackModule } from './feedback/feedback.module';
-import { AmenityModule } from './amenity/amenity.module';
 import { WebhookModule } from './webhook/webhook.module';
 import { ReportsModule } from './reports/reports.module';
+import { HealthModule } from './health/health.module';
 @Module({
   imports: [
     // Serve local files under storage/ at /storage/*
@@ -52,7 +55,17 @@ import { ReportsModule } from './reports/reports.module';
       signOptions: { expiresIn: '1d' },
       global: true,
     }),
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validate: validateEnv,
+      cache: true,
+    }),
+    ThrottlerModule.forRoot([
+      {
+        ttl: parseInt(process.env.THROTTLE_TTL || '60', 10) * 1000,
+        limit: parseInt(process.env.THROTTLE_LIMIT || '100', 10),
+      },
+    ]),
     PrismaModule,
     CommonModule,
     ScheduleModule.forRoot(),
@@ -74,10 +87,10 @@ import { ReportsModule } from './reports/reports.module';
     // CategoryModule,
     // WishlistModule,
     // EventModule,
-    AmenityModule,
     // BlogModule,
     StripeModule,
     ReportsModule,
+    HealthModule,
     // TransactionModule,
     // NotificationModule,
     // EmailModule,
@@ -93,6 +106,13 @@ import { ReportsModule } from './reports/reports.module';
     // PointsModule,
   ],
   controllers: [AppController],
-  providers: [AppService, PrismaService],
+  providers: [
+    AppService,
+    PrismaService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}
