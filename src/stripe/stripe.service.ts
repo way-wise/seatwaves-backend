@@ -419,6 +419,13 @@ export class StripeService {
 
       if (!ticket) throw new NotFoundException('This seat does not exist');
 
+      //own ticket
+      const isOwnTicket = ticket.event.seller.id === user.id;
+
+      if (isOwnTicket) {
+        throw new BadRequestException('You cannot book your own ticket');
+      }
+
       const price = new Decimal(ticket.price);
       const discount = new Decimal(ticket.discount || 0);
 
@@ -506,7 +513,9 @@ export class StripeService {
         }
 
         if (ticketCheck.isBooked) {
-          throw new BadRequestException('Ticket already booked by another user');
+          throw new BadRequestException(
+            'Ticket already booked by another user',
+          );
         }
 
         // Create booking with nested transaction
@@ -550,11 +559,11 @@ export class StripeService {
           },
         });
 
-        // Mark ticket as booked
-        await tx.ticket.update({
-          where: { id: data.ticketId },
-          data: { isBooked: true },
-        });
+        // // Mark ticket as booked
+        // await tx.ticket.update({
+        //   where: { id: data.ticketId },
+        //   data: { isBooked: true },
+        // });
 
         // Log activity within transaction
         await tx.activityLog.create({

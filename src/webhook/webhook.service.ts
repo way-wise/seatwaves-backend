@@ -242,6 +242,11 @@ export class WebhookService {
           data: {
             status: BookingStatus.CONFIRMED,
             updatedAt: new Date(),
+            ticket: {
+              update: {
+                isBooked: true,
+              },
+            },
           },
         });
       }
