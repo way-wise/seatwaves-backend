@@ -127,7 +127,6 @@ export class EventController {
 
   @UseGuards(AuthGuard('jwt'))
   @Get('/collections/admin')
-  @Permissions('read:event')
   getAdminCollections(@Query() query: any) {
     return this.eventService.getAdminCollections(query);
   }
