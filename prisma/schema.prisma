@@ -303,6 +303,7 @@ model Event {
   duration     Int? // in minutes
   image        String?
   city         String?
+  state        String?
   address      String?
   country      String?
   timezone     String?
@@ -326,6 +327,7 @@ model Event {
   WishlistItem WishlistItem[]
   EventAmenity EventAmenity[]
   Report       Report[]
+  collection   collections[]  @relation("EventToCollection")
 
   @@index([eventId])
   @@map("events")
@@ -1331,4 +1333,22 @@ model Report {
   @@index([messageId])
   @@index([createdAt])
   @@map("reports")
+}
+
+model collections {
+  id   String         @id @default(ulid())
+  type CollectionType @default(WEBALERT)
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  events    Event[]  @relation("EventToCollection")
+
+  @@index([type])
+}
+
+enum CollectionType {
+  WEBALERT
+  SPORTS
+  THEATER
+  CONCERT
 }

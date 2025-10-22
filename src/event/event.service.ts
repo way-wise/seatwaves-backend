@@ -15,6 +15,12 @@ import { eventQuerySchema } from './dto/event.query.dto';
 import { ticketQuerySchema } from './dto/ticket.query.dto';
 import { updateticketSchema } from './dto/update.ticket.dto';
 import { queryEventSchema } from './dto/query.dto';
+import {
+  CreateCollectionDto,
+  createCollectionSchema,
+} from './dto/collection.create.dto';
+import { collectionQuerySchema } from './dto/collection.query.dto';
+import { CollectionType } from '@prisma/client';
 
 @Injectable()
 export class EventService {
@@ -402,6 +408,7 @@ export class EventService {
             metadata: parsedData.data.metadata,
             categoryId: parsedData.data.categoryId,
             city: parsedData.data.city,
+            state: parsedData.data.state,
             country: parsedData.data.country,
             address: parsedData.data.address,
             latitude: parsedData.data.latitude,
@@ -979,6 +986,155 @@ export class EventService {
         event: eventForClient,
         summary,
       },
+    };
+  }
+
+  async createCollections(body: CreateCollectionDto) {
+    const parseData = createCollectionSchema.safeParse(body);
+    if (!parseData.success)
+      throw new NotAcceptableException('Invalid query parameters');
+
+    // check limit 5
+    const count = await this.prisma.collections.count({
+      where: {
+        type: parseData.data.type,
+      },
+    });
+    if (count >= 5) {
+      throw new NotAcceptableException('Limit exceeded');
+    }
+
+    const event = await this.prisma.event.findUnique({
+      where: {
+        id: parseData.data.eventId,
+      },
+    });
+
+    if (!event) {
+      throw new NotFoundException('Event not found');
+    }
+
+    //check already added
+    const collection = await this.prisma.collections.findFirst({
+      where: {
+        type: parseData.data.type,
+        events: {
+          some: {
+            id: parseData.data.eventId,
+          },
+        },
+      },
+    });
+
+    if (collection) {
+      throw new NotAcceptableException('Event already added');
+    }
+
+    const { type, eventId } = parseData.data;
+    const newCollection = await this.prisma.collections.create({
+      data: {
+        type,
+        events: { connect: { id: eventId } },
+      },
+    });
+    return {
+      status: true,
+      message: 'Collection created successfully',
+      collectionId: newCollection.id,
+    };
+  }
+
+  async getCollections(query: any) {
+    const collections = await this.prisma.collections.findMany({
+      where: {
+        type: query.type,
+      },
+      include: {
+        events: true,
+      },
+    });
+    return {
+      status: true,
+      data: collections,
+    };
+  }
+
+  async getAdminCollections(query: any) {
+    const parsedQuery = collectionQuerySchema.safeParse(query);
+
+    if (!parsedQuery.success) {
+      this.logger.error('Validation failed', parsedQuery.error);
+      throw new NotAcceptableException('Invalid query parameters');
+    }
+
+    const {
+      page,
+      limit,
+      sortBy,
+      sortOrder,
+      type = CollectionType.WEBALERT,
+    } = parsedQuery.data;
+
+    const pageInt = parseInt(page, 10);
+    const limitInt = parseInt(limit, 10);
+    const offset = (pageInt - 1) * limitInt;
+
+    const where: any = {};
+
+    if (type) {
+      where.type = type;
+    }
+    const collections = await this.prisma.collections.findMany({
+      where,
+      orderBy: { [sortBy]: sortOrder },
+      skip: offset,
+      take: limitInt,
+      include: {
+        events: {
+          select: {
+            id: true,
+            eventId: true,
+            title: true,
+            description: true,
+            venue: true,
+            startTime: true,
+            endTime: true,
+            duration: true,
+            image: true,
+            city: true,
+            state: true,
+            address: true,
+            country: true,
+            timezone: true,
+            status: true,
+            latitude: true,
+            longitude: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+    return {
+      status: true,
+      data: collections,
+      meta: {
+        total: collections.length,
+        page: pageInt,
+        limit: limitInt,
+      },
+    };
+  }
+
+  async deleteCollection(id: string) {
+    const deletedCollection = await this.prisma.collections.delete({
+      where: {
+        id,
+      },
+    });
+    return {
+      status: true,
+      message: 'Collection deleted successfully',
+      collectionId: deletedCollection.id,
     };
   }
 }

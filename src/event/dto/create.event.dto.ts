@@ -23,6 +23,7 @@ export const createEventScehema = z.object({
   metadata: z.record(z.any()).optional(),
   image: z.string().optional(),
   city: z.string().optional(),
+  state: z.string().optional(),
   address: z.string().optional(),
   country: z.string().optional(),
   timezone: z.string().optional(),
