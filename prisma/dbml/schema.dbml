@@ -205,6 +205,7 @@ Table events {
   duration Int
   image String
   city String
+  state String
   address String
   country String
   timezone String
@@ -227,6 +228,7 @@ Table events {
   WishlistItem wishlist_items [not null]
   EventAmenity event_amenities [not null]
   Report reports [not null]
+  collection collections [not null]
 }
 
 Table tickets {
@@ -788,9 +790,22 @@ Table reports {
   updatedAt DateTime [not null]
 }
 
+Table collections {
+  id String [pk]
+  type CollectionType [not null, default: 'WEBALERT']
+  updatedAt DateTime [not null]
+  createdAt DateTime [default: `now()`, not null]
+  events events [not null]
+}
+
 Table BlogCategories {
   blogsId String [ref: > blog.id]
   categoriesId String [ref: > categorys.id]
+}
+
+Table EventToCollection {
+  collectionId String [ref: > collections.id]
+  eventsId String [ref: > events.id]
 }
 
 Enum AuthProvider {
@@ -1072,6 +1087,13 @@ Enum ReportSeverity {
   MEDIUM
   HIGH
   CRITICAL
+}
+
+Enum CollectionType {
+  WEBALERT
+  SPORTS
+  THEATER
+  CONCERT
 }
 
 Ref: accounts.userId > users.id [delete: Cascade]

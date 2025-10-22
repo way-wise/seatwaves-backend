@@ -112,4 +112,30 @@ export class EventController {
   deleteTicket(@Param('id') id: string, @Req() req) {
     return this.eventService.deleteTicket(id, req.user.userId);
   }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('/collections')
+  @Permissions('create:event')
+  createCollection(@Body() body: any) {
+    return this.eventService.createCollections(body);
+  }
+
+  @Get('/collections/list')
+  getCollections(@Query() query) {
+    return this.eventService.getCollections(query);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('/collections/admin')
+  @Permissions('read:event')
+  getAdminCollections(@Query() query: any) {
+    return this.eventService.getAdminCollections(query);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Delete('/collections/:id')
+  @Permissions('delete:event')
+  deleteCollection(@Param('id') id: string) {
+    return this.eventService.deleteCollection(id);
+  }
 }
