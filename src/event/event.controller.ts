@@ -12,11 +12,11 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Permissions } from 'src/common/decorators/permissions.decorator';
+import { PermissionsGuard } from 'src/common/guards/permissions.guard';
 import { EventService } from './event.service';
 import { AuthGuard } from '@nestjs/passport';
 
 @Controller('events')
-// @UseGuards(AuthGuard('jwt'), PermissionsGuard)
 export class EventController {
   constructor(private readonly eventService: EventService) {}
 
@@ -38,7 +38,8 @@ export class EventController {
   }
 
   //get seller listing
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @Permissions('seller.events.view')
   @Get('/seller/listing')
   getSellerListing(@Query() query: any, @Req() req) {
     if (!req.user) {
@@ -47,21 +48,24 @@ export class EventController {
     return this.eventService.getSellerListing(query, req.user.userId);
   }
 
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @Permissions('admin.event.view')
   @Get('/admin/all')
-  // @Permissions('read:event')
   getEventsAdmin(@Query() query) {
     return this.eventService.getAllEventsAdmin(query);
   }
 
   //seller events
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @Permissions('seller.events.view')
   @Get('/seller/all')
   getEventsSeller(@Query() query, @Req() req) {
     return this.eventService.getEventsSeller(query, req.user.userId);
   }
 
   //admin get single event
-  @Permissions('event.read')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @Permissions('admin.event.view')
   @Get('/admin/events/:id')
   async adminGetSingleEventById(@Param('id') id: string, @Query() query: any) {
     return this.eventService.adminGetSingleEventById(id, query);
@@ -78,44 +82,46 @@ export class EventController {
     return this.eventService.getEventsBySeller(id, query);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @Permissions('event.create')
   @Post()
-  // @Permissions('create:event')
   createEvent(@Body() body, @Req() req) {
     return this.eventService.createEvent(body, req.user.userId);
   }
 
   //event bulk create
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @Permissions('event.create')
   @Post('/bulk')
-  // @Permissions('create:event')
   createEventsBulk(@Body() body) {
     return this.eventService.createEventsBulk(body);
   }
-  //add ticket to event\
-  @UseGuards(AuthGuard('jwt'))
+  //add ticket to event
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @Permissions('event.update')
   @Post('/:id/tickets')
   addTicket(@Param('id') id: string, @Body() body: any, @Req() req) {
     return this.eventService.addticketToEvent(id, body, req.user.userId);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @Permissions('event.update')
   @Put('/tickets/:id')
-  @Permissions('update:event')
   updateTicket(@Param('id') id: string, @Body() body: any, @Req() req) {
     return this.eventService.updateticket(id, body, req.user.userId);
   }
 
   //delete ticket
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @Permissions('event.delete')
   @Delete('/tickets/:id')
-  @Permissions('delete:event')
   deleteTicket(@Param('id') id: string, @Req() req) {
     return this.eventService.deleteTicket(id, req.user.userId);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @Permissions('event.create')
   @Post('/collections')
-  @Permissions('create:event')
   createCollection(@Body() body: any) {
     return this.eventService.createCollections(body);
   }
@@ -125,16 +131,16 @@ export class EventController {
     return this.eventService.getCollections(query);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @Permissions('admin.event.view')
   @Get('/collections/admin')
-  @Permissions('read:event')
   getAdminCollections(@Query() query: any) {
     return this.eventService.getAdminCollections(query);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @Permissions('event.delete')
   @Delete('/collections/:id')
-  @Permissions('delete:event')
   deleteCollection(@Param('id') id: string) {
     return this.eventService.deleteCollection(id);
   }

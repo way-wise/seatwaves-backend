@@ -23,8 +23,11 @@ const permissionGroups: Record<string, string[]> = {
   booking: [
     'booking.create',
     'booking.read',
+    'booking.update',
     'booking.cancel',
     'booking.manage', // refund, reassign, etc (admin/seller)
+    'booking.invoice',
+    'booking.verify',
   ],
   user: [
     'user.read',
@@ -79,6 +82,16 @@ const permissionGroups: Record<string, string[]> = {
   ],
   review: ['review.create', 'review.update', 'review.read', 'review.reply'],
   report: ['report.create', 'report.update', 'report.read', 'report.reply'],
+  notification: [
+    'notification.create',
+    'notification.read',
+    'notification.update',
+    'notification.delete',
+  ],
+  transaction: ['transaction.create', 'transaction.read', 'transaction.update'],
+  activity: ['activity.read', 'activity.create'],
+  webhook: ['webhook.read', 'webhook.manage'],
+  wishlist: ['wishlist.create', 'wishlist.read', 'wishlist.delete'],
 
   content: [
     'content.read',
@@ -93,7 +106,6 @@ const permissionGroups: Record<string, string[]> = {
     'content.testimonial.update',
     'content.testimonial.delete',
     'content.testimonial.read',
-    'content.testimonial.update',
     // New Admin Settings content permissions
     'content.privacypolicy.create',
     'content.privacypolicy.update',
@@ -125,7 +137,6 @@ const permissionGroups: Record<string, string[]> = {
     'admin.coupon.view',
     'admin.amenity.view',
     'admin.feedback.view',
-    'admin.event.view',
     'admin.participant.view',
     'admin.faq.view',
     'admin.transaction.view',
@@ -135,26 +146,29 @@ const permissionGroups: Record<string, string[]> = {
     'admin.balance.view',
     'admin.analysis.view',
     'admin.report.view',
+    'admin.review.view',
+    'admin.withdrawal.view',
+    'admin.notification.view',
   ],
   // Loyalty / Points permissions
   points: ['points.read', 'points.update', 'points.award', 'points.redeem'],
-  seller: [
-    'seller.calendar.view',
-    'seller.dashboard.view',
-    'seller.earnings.view',
-    'seller.events.view',
-    'seller.event.view',
-    'seller.events.view',
-    'seller.event.view',
-    'seller.participants.view',
-    'seller.booking.view',
-    'seller.messages.view',
-    'seller.reviews.view',
-    'seller.settings.view',
-    'seller.transactions.view',
-    'seller.transaction.view',
-  ],
 };
+
+// Seller-specific view permissions (not in permissionGroups to avoid being auto-assigned to ADMIN)
+const sellerPermissions = [
+  'seller.calendar.view',
+  'seller.dashboard.view',
+  'seller.earnings.view',
+  'seller.events.view',
+  'seller.event.view',
+  'seller.participants.view',
+  'seller.booking.view',
+  'seller.messages.view',
+  'seller.reviews.view',
+  'seller.settings.view',
+  'seller.transactions.view',
+  'seller.transaction.view',
+];
 
 const roles: Record<string, string[]> = {
   ADMIN: [
@@ -162,6 +176,7 @@ const roles: Record<string, string[]> = {
     ...Object.values(permissionGroups).flat(),
   ],
   SELLER: [
+    // Event management
     'event.create',
     'event.update',
     'event.delete',
@@ -169,27 +184,17 @@ const roles: Record<string, string[]> = {
     'event.publish',
     'event.verify',
     'event.manage',
+    // Booking management
+    'booking.create',
     'booking.read',
+    'booking.update',
+    'booking.cancel',
     'booking.manage',
-    'event.create',
-    'event.update',
-    'event.delete',
-    'event.read',
-    'event.manage',
-    'seller.calendar.view',
-    'seller.dashboard.view',
-    'seller.earnings.view',
-    'seller.events.view',
-    'seller.event.view',
-    'seller.events.view',
-    'seller.event.view',
-    'seller.participants.view',
-    'seller.booking.view',
-    'seller.messages.view',
-    'seller.reviews.view',
-    'seller.settings.view',
-    'seller.transactions.view',
-    'seller.transaction.view',
+    'booking.invoice',
+    'booking.verify',
+    // Seller dashboard
+    ...sellerPermissions,
+    // Messaging
     'message.create',
     'message.read',
     'message.update',
@@ -197,19 +202,20 @@ const roles: Record<string, string[]> = {
     'message.initiate',
     'message.send',
     'message.delete.room',
+    // Coupons
     'coupon.create',
     'coupon.update',
     'coupon.delete',
     'coupon.read',
     'coupon.redeem',
+    // Reviews
     'review.create',
     'review.update',
     'review.read',
     'review.reply',
+    // User management (own profile)
     'user.read',
-    'user.manage',
     'user.update',
-    'user.delete',
     'user.wishlist.view',
     'user.bookings.view',
     'user.message.view',
@@ -217,51 +223,41 @@ const roles: Record<string, string[]> = {
     'user.notification.view',
     'user.settings.view',
     'user.helpcenter.view',
-    'event.read',
-    'booking.create',
-    'booking.read',
-    'booking.cancel',
+    // Read-only access
     'category.read',
     'amenity.read',
-    'coupon.read',
     'help.read',
-    'message.create',
-    'message.read',
-    'message.update',
-    'message.delete',
-    'message.initiate',
-    'message.send',
-    'message.delete.room',
-    'review.create',
-    'review.update',
-    'review.read',
-    'review.reply',
-    'user.read',
-    'user.manage',
-    'user.update',
-    'user.delete',
-    'user.wishlist.view',
-    'user.bookings.view',
-    'user.message.view',
-    'user.profile.view',
-    'user.notification.view',
-    'user.settings.view',
-    'user.helpcenter.view',
-    'coupon.read',
+    // Reports
+    'report.create',
     'report.read',
     'report.update',
-    'report.delete',
-    'report.manage',
+    // Transactions
+    'transaction.read',
+    // Notifications
+    'notification.read',
+    'notification.update',
+    // Wishlist
+    'wishlist.create',
+    'wishlist.read',
+    'wishlist.delete',
   ],
   USER: [
+    // Event browsing
     'event.read',
+    // Booking
     'booking.create',
     'booking.read',
     'booking.cancel',
+    'booking.invoice',
+    // Categories & Amenities
     'category.read',
     'amenity.read',
+    // Coupons
     'coupon.read',
+    'coupon.redeem',
+    // Help
     'help.read',
+    // Messaging
     'message.create',
     'message.read',
     'message.update',
@@ -269,14 +265,13 @@ const roles: Record<string, string[]> = {
     'message.initiate',
     'message.send',
     'message.delete.room',
+    // Reviews
     'review.create',
     'review.update',
     'review.read',
-    'review.reply',
+    // User profile
     'user.read',
-    'user.manage',
     'user.update',
-    'user.delete',
     'user.wishlist.view',
     'user.bookings.view',
     'user.message.view',
@@ -284,22 +279,39 @@ const roles: Record<string, string[]> = {
     'user.notification.view',
     'user.settings.view',
     'user.helpcenter.view',
-    'coupon.read',
-    'report.read',
+    // Reports
     'report.create',
-    'report.update',
-    'report.delete',
-    'report.manage',
+    'report.read',
+    // Notifications
+    'notification.read',
+    'notification.update',
+    // Wishlist
+    'wishlist.create',
+    'wishlist.read',
+    'wishlist.delete',
+
+    // Transactions
+    'transaction.read',
+    // Blog reading
+    'blog.read',
+    ...sellerPermissions,
   ],
 };
 
 async function main() {
   console.log('Seeding permissions and roles...');
 
-  // Upsert permissions
+  // Upsert permissions from permissionGroups
   const allPermissions = Object.entries(permissionGroups).flatMap(
     ([group, names]) => names.map((name) => ({ name, group })),
   );
+
+  // Add seller permissions with 'seller' as group
+  const sellerPerms = sellerPermissions.map((name) => ({
+    name,
+    group: 'seller',
+  }));
+  allPermissions.push(...sellerPerms);
 
   const permissionMap = new Map<string, string>(); // name -> id
   for (const perm of allPermissions) {
