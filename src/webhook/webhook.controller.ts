@@ -8,11 +8,15 @@ import {
   Post,
   RawBodyRequest,
   Req,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import Stripe from 'stripe';
 import { WebhookService } from './webhook.service';
+import { AuthGuard } from '@nestjs/passport';
+import { PermissionsGuard } from 'src/common/guards/permissions.guard';
+import { Permissions } from 'src/common/decorators/permissions.decorator';
 
 @ApiTags('Stripe Webhooks')
 @Controller('webhook')
@@ -127,9 +131,9 @@ export class WebhookController {
   }
 
   //Get All Webhook Events
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @Permissions('webhook.read')
   @Get()
-  // @UseGuards(AuthGuard('jwt'))
-  // @Permissions('webhook.read')
   findAll() {
     return this.webhookService.findWebhookEvents();
   }

@@ -61,7 +61,7 @@ export class BookingController {
 
   // Invoice
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  // @Permissions('booking.invoice')
+  @Permissions('booking.invoice')
   @Get(':id/invoice')
   async invoice(@Param('id') id: string, @Req() req) {
     if (!req.user) {
@@ -107,7 +107,7 @@ export class BookingController {
   }
 
   //update seller status of booking
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('booking.update')
   @Patch(':orderId/order-status')
   async updateSellerStatus(
